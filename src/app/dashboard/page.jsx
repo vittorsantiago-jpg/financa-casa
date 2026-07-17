@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   useFixedBills, useExpenses, useCreditCards,
-  useCardTransactions, useSavingsGoals, useSalaries, useHousehold
+  useCardTransactions, useSavingsGoals, useIncomeSources, useHousehold
 } from "@/lib/hooks/useFinances";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   BarChart, Bar, XAxis, YAxis, Legend,
 } from "recharts";
+import AppLock from "@/components/AppLock";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const MONTHS_FULL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -130,18 +131,22 @@ export default function Dashboard() {
   const cards   = useCreditCards(householdId);
   const txs     = useCardTransactions(householdId);
   const goals   = useSavingsGoals(householdId);
-  const sal     = useSalaries(householdId);
+  const income  = useIncomeSources(householdId);
 
-  const loading = !householdId || bills.loading || sal.loading;
+  const loading = !householdId || bills.loading || income.loading;
 
   // ── Monthly numbers ────────────────────────────────────────────────────────
-  const mk      = `${year}-${month}`;
-  const mSal    = sal.byPeriod[mk] || {};
-  const salA    = Number(mSal[memberA.toLowerCase()])||0;
-  const salB    = Number(mSal[memberB.toLowerCase()])||0;
   const active  = bills.data.filter(b=>b.active!==false);
   const mExp    = exps.data.filter(e=>e.year===year&&e.month===month);
   const mTxs    = txs.data.filter(t=>t.year===year&&t.month===month);
+  const mInc    = income.data.filter(s=>s.year===year&&s.month===month);
+
+  // Renda recebida e pendente por membro
+  const salA = income.receivedTotal(memberA, month, year);
+  const salB = income.receivedTotal(memberB, month, year);
+  // fallback: usa esperado enquanto CLT ainda não chegou
+  const salAeff = salA || income.pendingTotal(memberA, month, year);
+  const salBeff = salB || income.pendingTotal(memberB, month, year);
 
   const sh = (row) => splitShare(row.amount, row.split_type, row.split_member, memberA, memberB);
 
@@ -151,7 +156,8 @@ export default function Dashboard() {
   mTxs.forEach(t=>{ const s=sh(t); cardA+=s[memberA]||0; cardB+=s[memberB]||0; });
 
   const totA = fixA+varA+cardA, totB = fixB+varB+cardB;
-  const pctA = salA>0 ? totA/salA : 0, pctB = salB>0 ? totB/salB : 0;
+  const pctA = salAeff>0 ? totA/salAeff : 0;
+  const pctB = salBeff>0 ? totB/salBeff : 0;
 
   const catMap = {};
   active.forEach(b=>{ catMap[b.category]=(catMap[b.category]||0)+Number(b.amount); });
@@ -174,18 +180,26 @@ export default function Dashboard() {
   );
 
   const TABS = [
-    {id:"dashboard",label:"🏠 Dashboard"},
-    {id:"salarios", label:"💵 Salários"},
-    {id:"fixas",    label:"📋 Fixas"},
-    {id:"lancamentos",label:"💸 Lançamentos"},
-    {id:"cartoes",  label:"💳 Cartões"},
-    {id:"metas",    label:"🎯 Metas"},
-    {id:"config",   label:"⚙️ Casa"},
+    {id:"dashboard",    label:"🏠 Dashboard"},
+    {id:"renda",        label:"💰 Renda"},
+    {id:"fixas",        label:"📋 Fixas"},
+    {id:"lancamentos",  label:"💸 Lançamentos"},
+    {id:"cartoes",      label:"💳 Cartões"},
+    {id:"metas",        label:"🎯 Metas"},
+    {id:"config",       label:"⚙️ Casa"},
   ];
 
-  const shared = { memberA, memberB, householdId, month, year, mExp, mTxs, active, sh, bills, exps, cards, txs, goals, sal, salA, salB, fixA, fixB, varA, varB, cardA, cardB, totA, totB, pctA, pctB, ticket, catData };
+  const shared = {
+    memberA, memberB, householdId, month, year,
+    mExp, mTxs, mInc, active, sh,
+    bills, exps, cards, txs, goals, income,
+    salA, salB, salAeff, salBeff,
+    fixA, fixB, varA, varB, cardA, cardB,
+    totA, totB, pctA, pctB, ticket, catData,
+  };
 
   return (
+    <AppLock>
     <div style={{ fontFamily:"'Inter',system-ui,sans-serif", background:C.bg, minHeight:"100vh", color:C.text }}>
       {/* HEADER */}
       <div style={{ background:C.header, color:"#fff", padding:"18px 20px 0" }}>
@@ -222,7 +236,7 @@ export default function Dashboard() {
       {/* CONTENT */}
       <div style={{ maxWidth:960, margin:"0 auto", padding:"22px 16px 40px" }}>
         {tab==="dashboard"    && <DashTab    {...shared} />}
-        {tab==="salarios"     && <SalTab     {...shared} />}
+        {tab==="renda"        && <RendaTab    {...shared} />}
         {tab==="fixas"        && <FixasTab   {...shared} />}
         {tab==="lancamentos"  && <LancTab    {...shared} />}
         {tab==="cartoes"      && <CartoesTab {...shared} />}
@@ -230,6 +244,7 @@ export default function Dashboard() {
         {tab==="config"       && <ConfigTab  {...shared} household={household} members={members} supabase={supabase} />}
       </div>
     </div>
+    </AppLock>
   );
 }
 
@@ -351,66 +366,166 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
   );
 }
 
-// ─── SALÁRIOS ─────────────────────────────────────────────────────────────────
-function SalTab({ memberA, memberB, sal, month, year }) {
-  const mk  = `${year}-${month}`;
-  const cur = sal.byPeriod[mk]||{};
-  const [vA, setA] = useState(String(cur[memberA.toLowerCase()]||""));
-  const [vB, setB] = useState(String(cur[memberB.toLowerCase()]||""));
-  const [saved, setSaved] = useState(false);
 
-  useEffect(()=>{ const c=sal.byPeriod[mk]||{}; setA(String(c[memberA.toLowerCase()]||"")); setB(String(c[memberB.toLowerCase()]||"")); setSaved(false); },[mk, JSON.stringify(sal.byPeriod[mk])]);
+// ─── RENDA ────────────────────────────────────────────────────────────────────
+function RendaTab({ memberA, memberB, income, mInc, month, year }) {
+  const [fvName, setFvName] = useState("");
+  const [fvAmt,  setFvAmt]  = useState("");
+  const [fvDate, setFvDate] = useState(new Date().toISOString().slice(0,10));
+  const [fhName, setFhName] = useState("");
+  const [fhAmt,  setFhAmt]  = useState("");
+  const [marking, setMarking] = useState(null);
+  const [markAmt,  setMarkAmt]  = useState("");
+  const [markDate, setMarkDate] = useState(new Date().toISOString().slice(0,10));
 
-  const save = async () => {
-    await Promise.all([
-      sal.saveSalary(memberA, Number(vA)||0, month, year),
-      sal.saveSalary(memberB, Number(vB)||0, month, year),
-    ]);
-    setSaved(true); setTimeout(()=>setSaved(false),2500);
+  const mV = mInc.filter(s=>s.member_name===memberA).sort((a,b)=>(b.received_date||"").localeCompare(a.received_date||""));
+  const mH = mInc.filter(s=>s.member_name===memberB);
+  const totalV     = mV.reduce((a,s)=>a+Number(s.received_amount||0),0);
+  const totalHRecv = mH.filter(s=>s.status==="received").reduce((a,s)=>a+Number(s.received_amount||0),0);
+  const totalHPend = mH.filter(s=>s.status==="pending" ).reduce((a,s)=>a+Number(s.expected_amount||0),0);
+
+  const addFreelance = async () => {
+    if (!fvName||!fvAmt) return;
+    await income.insert({ member_name:memberA, source_name:fvName, source_type:"freelance",
+      received_amount:Number(fvAmt), received_date:fvDate, status:"received", month, year });
+    setFvName(""); setFvAmt("");
   };
 
-  const prevMK = month===0?`${year-1}-11`:`${year}-${month-1}`;
-  const hasPrev = !!sal.byPeriod[prevMK];
-  const copyPrev = ()=>{ const p=sal.byPeriod[prevMK]; setA(String(p[memberA.toLowerCase()]||"")); setB(String(p[memberB.toLowerCase()]||"")); };
+  const addCLT = async () => {
+    if (!fhName||!fhAmt) return;
+    await income.insert({ member_name:memberB, source_name:fhName, source_type:"clt",
+      expected_amount:Number(fhAmt), status:"pending", month, year });
+    setFhName(""); setFhAmt("");
+  };
 
-  const hist = Object.entries(sal.byPeriod).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6);
+  const copyPrevCLT = async () => {
+    const n = await income.copyPreviousCLT(memberB, month, year);
+    if (!n) alert("Nenhuma entrada CLT encontrada no mês anterior.");
+  };
+
+  const markReceived = async (id) => {
+    if (!markAmt) return;
+    await income.markReceived(id, Number(markAmt), markDate);
+    setMarking(null); setMarkAmt(""); setMarkDate(new Date().toISOString().slice(0,10));
+  };
+
+  const hasPrevCLT = income.data.some(s=>{
+    const pm=month===0?11:month-1, py=month===0?year-1:year;
+    return s.member_name===memberB&&s.month===pm&&s.year===py&&s.source_type==="clt";
+  });
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-      <Card>
+
+      {/* VITTOR — Autônomo */}
+      <Card style={{ borderLeft:`5px solid ${C.primary}` }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>💵 Salários — {MONTHS_FULL[month]} {year}</h2>
-          {hasPrev && <Btn variant="ghost" onClick={copyPrev} style={{ fontSize:12, padding:"7px 14px" }}>📋 Copiar mês anterior</Btn>}
+          <div>
+            <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>👤 {memberA} — Autônomo</h2>
+            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Lance cada pagamento conforme recebe</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase" }}>Recebido este mês</div>
+            <div style={{ fontSize:22, fontWeight:900, color:C.primary }}>{fmt(totalV)}</div>
+          </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
-          {[[memberA,vA,setA,"#eef2ff",C.primary],[memberB,vB,setB,"#f0fdf4",C.success]].map(([name,val,set,bg,col])=>(
-            <div key={name} style={{ background:bg, borderRadius:14, padding:16 }}>
-              <div style={{ fontWeight:800, marginBottom:12, color:col, fontSize:14 }}>👤 {name}</div>
-              <Field label="Salário líquido (R$)"><Input type="number" placeholder="0,00" value={val} onChange={e=>set(e.target.value)}/></Field>
-            </div>
-          ))}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+          <Field label="Descrição / Cliente" span={2}>
+            <Input placeholder="Ex: Cliente ABC — Projeto X" value={fvName} onChange={e=>setFvName(e.target.value)}/>
+          </Field>
+          <Field label="Valor recebido (R$)">
+            <Input type="number" placeholder="0,00" value={fvAmt} onChange={e=>setFvAmt(e.target.value)}/>
+          </Field>
+          <Field label="Data de recebimento">
+            <Input type="date" value={fvDate} onChange={e=>setFvDate(e.target.value)}/>
+          </Field>
         </div>
-        {(Number(vA)||0)>0&&(Number(vB)||0)>0&&(
-          <div style={{ background:C.pLight, borderRadius:12, padding:"11px 16px", marginBottom:16, display:"flex", justifyContent:"space-between" }}>
-            <span style={{ color:C.primary, fontWeight:600 }}>Renda total da casa</span>
-            <span style={{ fontWeight:900, color:C.primary, fontSize:18 }}>{fmt((Number(vA)||0)+(Number(vB)||0))}</span>
+        <Btn onClick={addFreelance} style={{ width:"100%" }}>+ Registrar Pagamento Recebido</Btn>
+        {mV.length>0 && (
+          <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:C.sub, textTransform:"uppercase" }}>Pagamentos em {MONTHS_FULL[month]}</div>
+            {mV.map(s=>(
+              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 13px", border:`1.5px solid ${C.border}`, borderRadius:12 }}>
+                <span style={{ fontSize:18 }}>💸</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:700, fontSize:13 }}>{s.source_name}</div>
+                  <div style={{ fontSize:11, color:C.muted }}>{s.received_date}</div>
+                </div>
+                <div style={{ fontWeight:900, color:C.success, fontSize:15 }}>{fmt(s.received_amount)}</div>
+                <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer" }}>🗑️</button>
+              </div>
+            ))}
           </div>
         )}
-        <Btn onClick={save} style={{ width:"100%" }}>{saved?"✅ Salários salvos!":"Salvar Salários"}</Btn>
+        {mV.length===0 && <Empty msg="Nenhum pagamento registrado neste mês."/>}
       </Card>
-      {hist.length>0&&(
-        <Card>
-          <STitle>Histórico</STitle>
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-            {hist.map(([k,s])=>{ const [y,m]=k.split("-"); return (
-              <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 13px", background:"#f8fafc", borderRadius:10, fontSize:13 }}>
-                <span style={{ fontWeight:700 }}>{MONTHS_FULL[Number(m)]} {y}</span>
-                <span style={{ color:C.sub }}>{memberA}: {fmt(s[memberA.toLowerCase()])} · {memberB}: {fmt(s[memberB.toLowerCase()])}</span>
-              </div>
-            );})}
+
+      {/* HEMERSON — CLT */}
+      <Card style={{ borderLeft:`5px solid ${C.success}` }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+          <div>
+            <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>👤 {memberB} — CLT (3 empregos)</h2>
+            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Cadastre os empregos e confirme quando cada salário cair</div>
           </div>
-        </Card>
-      )}
+          {hasPrevCLT && <Btn variant="ghost" onClick={copyPrevCLT} style={{ fontSize:12, padding:"7px 14px" }}>📋 Copiar mês anterior</Btn>}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16, marginTop:8 }}>
+          <div style={{ background:C.sLight, borderRadius:12, padding:"10px 14px" }}>
+            <div style={{ fontSize:11, color:"#166534", fontWeight:700, textTransform:"uppercase" }}>✅ Recebido</div>
+            <div style={{ fontSize:20, fontWeight:900, color:"#16a34a" }}>{fmt(totalHRecv)}</div>
+          </div>
+          <div style={{ background:"#fffbeb", borderRadius:12, padding:"10px 14px" }}>
+            <div style={{ fontSize:11, color:"#92400e", fontWeight:700, textTransform:"uppercase" }}>⏳ A Receber</div>
+            <div style={{ fontSize:20, fontWeight:900, color:C.warn }}>{fmt(totalHPend)}</div>
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+          <Field label="Nome do emprego" span={2}>
+            <Input placeholder="Ex: Empresa Principal, Empresa Secundária…" value={fhName} onChange={e=>setFhName(e.target.value)}/>
+          </Field>
+          <Field label="Salário esperado (R$)">
+            <Input type="number" placeholder="0,00" value={fhAmt} onChange={e=>setFhAmt(e.target.value)}/>
+          </Field>
+          <div style={{ display:"flex", alignItems:"flex-end" }}>
+            <Btn onClick={addCLT} style={{ width:"100%" }}>+ Adicionar Emprego</Btn>
+          </div>
+        </div>
+        {mH.length>0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {mH.map(s=>{
+              const recv=s.status==="received";
+              return (
+                <div key={s.id} style={{ border:`1.5px solid ${recv?"#86efac":C.border}`, background:recv?"#f0fdf4":"#fff", borderRadius:13, padding:"12px 14px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ fontSize:22 }}>💼</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:14 }}>{s.source_name}</div>
+                      <div style={{ fontSize:12, color:C.muted }}>
+                        Esperado: <strong>{fmt(s.expected_amount)}</strong>
+                        {recv && <> · Recebido: <strong style={{ color:"#16a34a" }}>{fmt(s.received_amount)}</strong> em {s.received_date}</>}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      {recv ? <Badge color={C.success}>✅ Recebido</Badge> : <Badge color={C.warn}>⏳ Pendente</Badge>}
+                      {!recv && <Btn onClick={()=>{ setMarking(s.id); setMarkAmt(String(s.expected_amount||"")); }} style={{ fontSize:12, padding:"6px 12px" }}>✓ Confirmar</Btn>}
+                      <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer" }}>🗑️</button>
+                    </div>
+                  </div>
+                  {marking===s.id && (
+                    <div style={{ marginTop:12, padding:"12px 14px", background:"#fffbeb", borderRadius:10, display:"grid", gridTemplateColumns:"1fr 1fr auto auto", gap:10, alignItems:"end" }}>
+                      <Field label="Valor recebido (R$)"><Input type="number" value={markAmt} onChange={e=>setMarkAmt(e.target.value)}/></Field>
+                      <Field label="Data de recebimento"><Input type="date" value={markDate} onChange={e=>setMarkDate(e.target.value)}/></Field>
+                      <Btn variant="success" onClick={()=>markReceived(s.id)}>💾 Salvar</Btn>
+                      <Btn variant="ghost" onClick={()=>setMarking(null)}>Cancelar</Btn>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {mH.length===0 && <Empty msg="Nenhum emprego cadastrado este mês. Adicione acima ou copie do mês anterior."/>}
+      </Card>
     </div>
   );
 }
