@@ -180,13 +180,12 @@ export default function Dashboard() {
   );
 
   const TABS = [
-    {id:"dashboard",    label:"🏠 Dashboard"},
-    {id:"renda",        label:"💰 Renda"},
-    {id:"fixas",        label:"📋 Fixas"},
-    {id:"lancamentos",  label:"💸 Lançamentos"},
-    {id:"cartoes",      label:"💳 Cartões"},
-    {id:"metas",        label:"🎯 Metas"},
-    {id:"config",       label:"⚙️ Casa"},
+    { id:"dashboard",   icon:"🏠", label:"Início"  },
+    { id:"renda",       icon:"💰", label:"Renda"   },
+    { id:"fixas",       icon:"📋", label:"Fixas"   },
+    { id:"lancamentos", icon:"💸", label:"Gastos"  },
+    { id:"cartoes",     icon:"💳", label:"Cartões" },
+    { id:"metas",       icon:"🎯", label:"Metas"   },
   ];
 
   const shared = {
@@ -200,49 +199,70 @@ export default function Dashboard() {
 
   return (
     <AppLock>
-    <div style={{ fontFamily:"'Inter',system-ui,sans-serif", background:C.bg, minHeight:"100vh", color:C.text }}>
-      {/* HEADER */}
-      <div style={{ background:C.header, color:"#fff", padding:"18px 20px 0" }}>
-        <div style={{ maxWidth:960, margin:"0 auto" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:10 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-              <div style={{ width:42, height:42, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:14, color:"#fff" }}>V♥H</div>
-              <div>
-                <div style={{ fontWeight:900, fontSize:18 }}>{household?.name || "Finanças da Casa"}</div>
-                <div style={{ opacity:.65, fontSize:12 }}>{memberA} & {memberB}</div>
-              </div>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(255,255,255,.13)", borderRadius:12, padding:"7px 14px" }}>
-                <button onClick={()=>navMonth(-1)} style={{ background:"none", border:"none", color:"#fff", fontSize:18, cursor:"pointer" }}>‹</button>
-                <span style={{ fontWeight:700, fontSize:14, minWidth:145, textAlign:"center" }}>{MONTHS_FULL[month]} {year}</span>
-                <button onClick={()=>navMonth( 1)} style={{ background:"none", border:"none", color:"#fff", fontSize:18, cursor:"pointer" }}>›</button>
-              </div>
-              <button onClick={logout} title="Sair" style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:10, padding:"8px 14px", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:600 }}>Sair</button>
+    <div style={{ fontFamily:"'Inter',system-ui,sans-serif", background:C.bg, minHeight:"100vh", color:C.text, colorScheme:"light" }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ background:C.header, color:"#fff", padding:"14px 16px 14px" }}>
+        <div style={{ maxWidth:960, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          {/* Logo + nome */}
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:38, height:38, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13, color:"#fff", flexShrink:0 }}>V♥H</div>
+            <div>
+              <div style={{ fontWeight:900, fontSize:16, lineHeight:1.2 }}>{household?.name || "Finanças da Casa"}</div>
+              <div style={{ opacity:.6, fontSize:11 }}>{memberA} & {memberB}</div>
             </div>
           </div>
-          <div style={{ display:"flex", gap:2, overflowX:"auto" }}>
-            {TABS.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{
-                background:tab===t.id?"#fff":"transparent", color:tab===t.id?C.primary:"rgba(255,255,255,.78)",
-                border:"none", borderRadius:"10px 10px 0 0", padding:"9px 15px", fontSize:13, fontWeight:700,
-                cursor:"pointer", whiteSpace:"nowrap", transition:"all .15s",
-              }}>{t.label}</button>
-            ))}
+          {/* Navegação de mês + ações */}
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,.13)", borderRadius:12, padding:"6px 12px" }}>
+              <button onClick={()=>navMonth(-1)} style={{ background:"none", border:"none", color:"#fff", fontSize:18, cursor:"pointer", lineHeight:1, padding:0 }}>‹</button>
+              <span style={{ fontWeight:700, fontSize:13, minWidth:120, textAlign:"center" }}>{MONTHS_FULL[month]} {year}</span>
+              <button onClick={()=>navMonth( 1)} style={{ background:"none", border:"none", color:"#fff", fontSize:18, cursor:"pointer", lineHeight:1, padding:0 }}>›</button>
+            </div>
+            <button onClick={()=>setTab("config")} title="Configurações" style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:10, width:36, height:36, color:"#fff", cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
+            <button onClick={logout} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:10, padding:"7px 12px", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>Sair</button>
           </div>
         </div>
       </div>
 
-      {/* CONTENT */}
-      <div style={{ maxWidth:960, margin:"0 auto", padding:"22px 16px 40px" }}>
+      {/* ── CONTENT ── */}
+      <div style={{ maxWidth:960, margin:"0 auto", padding:"18px 14px 90px" }}>
         {tab==="dashboard"    && <DashTab    {...shared} />}
-        {tab==="renda"        && <RendaTab    {...shared} />}
+        {tab==="renda"        && <RendaTab   {...shared} />}
         {tab==="fixas"        && <FixasTab   {...shared} />}
         {tab==="lancamentos"  && <LancTab    {...shared} />}
         {tab==="cartoes"      && <CartoesTab {...shared} />}
         {tab==="metas"        && <MetasTab   {...shared} />}
         {tab==="config"       && <ConfigTab  {...shared} household={household} members={members} supabase={supabase} />}
       </div>
+
+      {/* ── BOTTOM NAV ── */}
+      <nav style={{
+        position:"fixed", bottom:0, left:0, right:0,
+        background:"#fff", borderTop:`1px solid ${C.border}`,
+        display:"flex", zIndex:200,
+        paddingBottom:"env(safe-area-inset-bottom)",
+        boxShadow:"0 -4px 16px rgba(79,70,229,.10)",
+      }}>
+        {TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              flex:1, display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", padding:"9px 2px 7px",
+              border:"none", background:"none", cursor:"pointer",
+              fontFamily:"inherit", WebkitTapHighlightColor:"transparent",
+              color: active ? C.primary : C.muted,
+              position:"relative",
+            }}>
+              {active && <div style={{ position:"absolute", top:0, left:"20%", right:"20%", height:3, background:C.primary, borderRadius:"0 0 3px 3px" }}/>}
+              <span style={{ fontSize:20, lineHeight:1, marginBottom:3 }}>{t.icon}</span>
+              <span style={{ fontSize:9, fontWeight: active ? 800 : 500, letterSpacing:".02em" }}>{t.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
     </div>
     </AppLock>
   );
@@ -261,7 +281,7 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       {(!salA && !salB) && (
         <div style={{ background:"#fffbeb", border:"1.5px solid #fcd34d", borderRadius:12, padding:"12px 16px", color:"#92400e", fontSize:13, fontWeight:500 }}>
-          ⚠️ Cadastre os salários deste mês na aba <strong>Salários</strong> para ver os indicadores completos.
+          ⚠️ Registre a renda deste mês na aba <strong>💰 Renda</strong> para ver os indicadores completos.
         </div>
       )}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14 }}>
@@ -280,34 +300,50 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
         ))}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
         {[
-          { name:memberA, sal:salA, tot:totA, fix:fixA, vari:varA+cardA, pct:pctA },
-          { name:memberB, sal:salB, tot:totB, fix:fixB, vari:varB+cardB, pct:pctB },
-        ].map(p=>(
-          <Card key={p.name}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-              <span style={{ fontWeight:800, fontSize:15 }}>👤 {p.name}</span>
-              <Badge color={healthColor(p.pct)}>{healthLabel(p.pct)}</Badge>
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14, fontSize:13 }}>
-              {[["SALÁRIO",fmt(p.sal),C.text],["COMPROMETIDO",fmt(p.tot),"#ef4444"],["FIXAS",fmt(p.fix),C.text],["VARIÁVEIS",fmt(p.vari),C.text]].map(([l,v,c])=>(
-                <div key={l}><div style={{ color:C.muted, fontSize:10, fontWeight:700, letterSpacing:".06em", marginBottom:2 }}>{l}</div><div style={{ fontWeight:700, color:c }}>{v}</div></div>
-              ))}
-            </div>
-            <div style={{ marginBottom:10 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.sub, marginBottom:4 }}>
-                <span>Comprometimento</span>
-                <span style={{ color:healthColor(p.pct), fontWeight:800 }}>{p.sal>0?`${(p.pct*100).toFixed(1)}%`:"—"}</span>
+          { name:memberA, sal:salA, tot:totA, fix:fixA, vari:varA+cardA, pct:pctA, color:C.primary, bg:"#eef2ff" },
+          { name:memberB, sal:salB, tot:totB, fix:fixB, vari:varB+cardB, pct:pctB, color:C.success, bg:"#f0fdf4" },
+        ].map(p=>{
+          const avail = (p.sal||0) - p.tot;
+          const col   = healthColor(p.pct);
+          return (
+            <Card key={p.name} style={{ padding:"16px 18px" }}>
+              {/* Top row: avatar + name + badge */}
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+                <div style={{ width:44, height:44, borderRadius:"50%", background:p.bg, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:18, color:p.color, flexShrink:0 }}>
+                  {p.name[0].toUpperCase()}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:900, fontSize:16, color:C.text }}>{p.name}</div>
+                  <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
+                    {p.sal > 0 ? `Recebido: ${fmt(p.sal)}` : "Sem renda registrada"}
+                  </div>
+                </div>
+                <Badge color={col}>{healthLabel(p.pct)}</Badge>
               </div>
-              <ProgressBar value={p.tot} max={p.sal} color={healthColor(p.pct)} height={10} />
-            </div>
-            <div style={{ background:"#f0fdf4", borderRadius:10, padding:"10px 13px", display:"flex", justifyContent:"space-between" }}>
-              <span style={{ fontSize:12, color:"#166534", fontWeight:600 }}>Disponível</span>
-              <span style={{ fontWeight:800, color:(p.sal-p.tot)>=0?"#16a34a":C.danger, fontSize:15 }}>{fmt(p.sal-p.tot)}</span>
-            </div>
-          </Card>
-        ))}
+
+              {/* Progress bar */}
+              <div style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.sub, marginBottom:5 }}>
+                  <span>Comprometimento</span>
+                  <span style={{ color:col, fontWeight:800 }}>{p.sal>0?`${(p.pct*100).toFixed(1)}%`:"—"}</span>
+                </div>
+                <ProgressBar value={p.tot} max={p.sal||1} color={col} height={10}/>
+              </div>
+
+              {/* 3 values in a row */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+                {[["Fixas", fmt(p.fix), C.text],["Variáveis", fmt(p.vari), C.text],["Disponível", fmt(avail), avail>=0?"#16a34a":C.danger]].map(([l,v,c])=>(
+                  <div key={l} style={{ background:"#f8fafc", borderRadius:10, padding:"8px 10px" }}>
+                    <div style={{ fontSize:10, color:C.muted, fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>{l}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:c }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       {catData.length>0 && (
