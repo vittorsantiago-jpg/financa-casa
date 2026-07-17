@@ -1,3 +1,8 @@
+Aqui está o código completo, já limpo e corrigido. Removi exatamente o bloco de `return` duplicado que estava solto entre o componente `DashTab` e o `RendaTab`.
+
+É só clicar em "Copiar código" aqui embaixo e substituir tudo no seu arquivo `page.jsx`:
+
+```jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -485,132 +490,6 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
     </div>
   );
 }
-
-  return (
-    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-      {(!salA && !salB) && (
-        <div style={{ background:"#fffbeb", border:"1.5px solid #fcd34d", borderRadius:12, padding:"12px 16px", color:"#92400e", fontSize:13, fontWeight:500 }}>
-          ⚠️ Registre a renda deste mês na aba <strong>💰 Renda</strong> para ver os indicadores completos.
-        </div>
-      )}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:14 }}>
-        {[
-          { icon:"💵", title:"Renda Total",   value:fmt(totalIncome), sub:`${memberA} + ${memberB}`,     c:C.primary },
-          { icon:"🏠", title:"Gastos Casa",   value:fmt(houseTotal),  sub:"Fixas + variáveis + cartões", c:C.danger  },
-          { icon:"✅", title:"Saldo do Mês",   value:fmt(saldo),       sub:saldo>=0?"Livre p/ poupança":"Atenção!", c:saldo>=0?C.success:C.danger },
-          ...(ticket>0?[{ icon:"🎟️", title:"Via Ticket", value:fmt(ticket), sub:"Não conta no saldo", c:C.muted }]:[]),
-        ].map(({icon,title,value,sub,c})=>(
-          <Card key={title} style={{ borderTop:`4px solid ${c}` }}>
-            <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
-            <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>{title}</div>
-            <div style={{ fontSize:22, fontWeight:900, color:c, marginBottom:2 }}>{value}</div>
-            <div style={{ fontSize:11, color:C.muted }}>{sub}</div>
-          </Card>
-        ))}
-      </div>
-
-      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-        {[
-          { name:memberA, sal:salA, tot:totA, fix:fixA, vari:varA+cardA, pct:pctA, color:C.primary, bg:"#eef2ff" },
-          { name:memberB, sal:salB, tot:totB, fix:fixB, vari:varB+cardB, pct:pctB, color:C.success, bg:"#f0fdf4" },
-        ].map(p=>{
-          const avail = (p.sal||0) - p.tot;
-          const col   = healthColor(p.pct);
-          return (
-            <Card key={p.name} style={{ padding:"16px 18px" }}>
-              {/* Top row: avatar + name + badge */}
-              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-                <div style={{ width:44, height:44, borderRadius:"50%", background:p.bg, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:18, color:p.color, flexShrink:0 }}>
-                  {p.name[0].toUpperCase()}
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:900, fontSize:16, color:C.text }}>{p.name}</div>
-                  <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
-                    {p.sal > 0 ? `Recebido: ${fmt(p.sal)}` : "Sem renda registrada"}
-                  </div>
-                </div>
-                <Badge color={col}>{healthLabel(p.pct)}</Badge>
-              </div>
-
-              {/* Progress bar */}
-              <div style={{ marginBottom:12 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.sub, marginBottom:5 }}>
-                  <span>Comprometimento</span>
-                  <span style={{ color:col, fontWeight:800 }}>{p.sal>0?`${(p.pct*100).toFixed(1)}%`:"—"}</span>
-                </div>
-                <ProgressBar value={p.tot} max={p.sal||1} color={col} height={10}/>
-              </div>
-
-              {/* 3 values in a row */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
-                {[["Fixas", fmt(p.fix), C.text],["Variáveis", fmt(p.vari), C.text],["Disponível", fmt(avail), avail>=0?"#16a34a":C.danger]].map(([l,v,c])=>(
-                  <div key={l} style={{ background:"#f8fafc", borderRadius:10, padding:"8px 10px" }}>
-                    <div style={{ fontSize:10, color:C.muted, fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>{l}</div>
-                    <div style={{ fontSize:13, fontWeight:800, color:c }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {catData.length>0 && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-          <Card>
-            <STitle>Gastos por Categoria</STitle>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={78} label={({percent})=>`${(percent*100).toFixed(0)}%`} labelLine={false} fontSize={12}>
-                  {catData.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                </Pie>
-                <Tooltip formatter={v=>fmt(v)}/>
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 12px", marginTop:6 }}>
-              {catData.map((c,i)=><span key={i} style={{ fontSize:11, color:C.sub, display:"flex", alignItems:"center", gap:4 }}><span style={{ width:8,height:8,borderRadius:"50%",background:c.color,display:"inline-block" }}/>{c.name}</span>)}
-            </div>
-          </Card>
-          <Card>
-            <STitle>Comprometimento</STitle>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={[
-                {name:memberA, Comprometido:totA, Disponível:Math.max(0,salA-totA)},
-                {name:memberB, Comprometido:totB, Disponível:Math.max(0,salB-totB)},
-              ]}>
-                <XAxis dataKey="name" tick={{fontSize:13}}/>
-                <YAxis tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v} tick={{fontSize:11}}/>
-                <Tooltip formatter={v=>fmt(v)}/>
-                <Legend wrapperStyle={{fontSize:11}}/>
-                <Bar dataKey="Comprometido" fill="#ef4444" radius={[5,5,0,0]}/>
-                <Bar dataKey="Disponível"   fill="#10b981" radius={[5,5,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-        </div>
-      )}
-
-      {goals.data.length>0 && (
-        <Card>
-          <STitle>🎯 Metas de Poupança</STitle>
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-            {goals.data.map(g=>{
-              const p=Math.min((Number(g.current_amount)||0)/(Number(g.target_amount)||1),1);
-              return <div key={g.id}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5, fontSize:13 }}>
-                  <span style={{ fontWeight:700 }}>{g.icon} {g.name}</span>
-                  <span style={{ color:C.sub }}>{fmt(g.current_amount)} / {fmt(g.target_amount)}</span>
-                </div>
-                <ProgressBar value={g.current_amount} max={g.target_amount} color={p>=1?C.success:C.primary} height={9}/>
-              </div>;
-            })}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
-}
-
 
 // ─── RENDA ────────────────────────────────────────────────────────────────────
 function RendaTab({ memberA, memberB, income, mInc, month, year }) {
