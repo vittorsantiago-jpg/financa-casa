@@ -144,3 +144,167 @@ export function useHousehold(householdId) {
 
   return { household, members, loading };
 }
+
+/**
+ * useBillPayments — rastreia pagamento de contas do mês.
+ * Auto-gera entradas para contas fixas e cartões se ainda não existirem.
+ */
+export function useBillPayments(householdId) {
+  const base = useTable("bill_payments", householdId, { order: "due_day", asc: true });
+
+  /** Entradas de um mês/ano específico */
+  const forPeriod = (month, year) =>
+    base.data.filter(b => b.month === month && b.year === year);
+
+  /** Marca como pago */
+  const markPaid = (id) =>
+    base.update(id, { status: "paid", interest_amount: null });
+
+  /** Marca como pago com atraso + juros */
+  const markPaidLate = (id, interestAmount) =>
+    base.update(id, { status: "paid_late", interest_amount: Number(interestAmount) || 0 });
+
+  /** Volta para pendente */
+  const markPending = (id) =>
+    base.update(id, { status: "pending", interest_amount: null });
+
+  /**
+   * Auto-gera entradas pendentes para fixed_bills e credit_cards
+   * que ainda não têm registro no mês. Chame no mount do BillsTab.
+   */
+  const autoGenerate = async (fixedBills, cards, cardTxs, month, year) => {
+    const existing = base.data.filter(b => b.month === month && b.year === year);
+    const existingSourceIds = new Set(existing.map(b => b.source_id).filter(Boolean));
+
+    const toCreate = [];
+
+    // Contas fixas ativas
+    for (const bill of fixedBills.filter(b => b.active !== false)) {
+      if (!existingSourceIds.has(bill.id)) {
+        toCreate.push({
+          name:        bill.name,
+          amount:      bill.amount,
+          due_day:     bill.due_day || null,
+          status:      "pending",
+          source_type: "fixed_bill",
+          source_id:   bill.id,
+          month, year,
+        });
+      }
+    }
+
+    // Faturas de cartão
+    for (const card of cards) {
+      if (!existingSourceIds.has(card.id)) {
+        const total = cardTxs
+          .filter(t => t.card_id === card.id && t.month === month && t.year === year)
+          .reduce((s, t) => s + Number(t.amount), 0);
+        toCreate.push({
+          name:        `${card.name} (Fatura)`,
+          amount:      total || null,
+          due_day:     card.due_day || null,
+          status:      "pending",
+          source_type: "credit_card",
+          source_id:   card.id,
+          month, year,
+        });
+      }
+    }
+
+    for (const entry of toCreate) {
+      await base.insert(entry);
+    }
+  };
+
+  return { ...base, forPeriod, markPaid, markPaidLate, markPending, autoGenerate };
+}
+
+/**
+ * useCardInstallments — compras parceladas no cartão.
+ * Gerencia planos (a compra) e parcelas individuais (uma por mês).
+ * Suporta valores variáveis: primeira parcela diferente das demais.
+ */
+export function useCardInstallments(householdId) {
+  const [plans,        setPlans]   = useState([]);
+  const [installments, setInst]    = useState([]);
+  const [loading,      setLoading] = useState(true);
+  const supabase = createClient();
+
+  const fetchAll = useCallback(async () => {
+    if (!householdId) return;
+    const [{ data: p }, { data: i }] = await Promise.all([
+      supabase.from("card_installment_plans").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
+      supabase.from("card_installments").select("*").eq("household_id", householdId).order("year").order("month").order("installment_number"),
+    ]);
+    setPlans(p || []);
+    setInst(i || []);
+    setLoading(false);
+  }, [householdId]);
+
+  useEffect(() => {
+    fetchAll();
+    if (!householdId) return;
+    const ch = supabase.channel(`installments_${householdId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_installment_plans", filter: `household_id=eq.${householdId}` }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "card_installments",      filter: `household_id=eq.${householdId}` }, fetchAll)
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [householdId, fetchAll]);
+
+  /** Parcelas de um mês, enriquecidas com dados do plano (split, descrição) */
+  const forMonth = (month, year) =>
+    installments
+      .filter(i => i.month === month && i.year === year)
+      .map(i => ({ ...i, plan: plans.find(p => p.id === i.plan_id) || {} }));
+
+  /** Planos que ainda têm parcelas futuras ou do mês atual */
+  const activePlans = (month, year) => {
+    const ref = year * 12 + month;
+    return plans.filter(p =>
+      installments.some(i => i.plan_id === p.id && (i.year * 12 + i.month) >= ref)
+    );
+  };
+
+  /**
+   * Cria um plano e gera todas as parcelas.
+   * firstAmount  = valor da 1ª parcela
+   * recurAmount  = valor das parcelas 2 até N (pode ser igual à 1ª)
+   */
+  const createPlan = async ({ card_id, description, category, split_type, split_member, total_installments, first_month, first_year, firstAmount, recurAmount }) => {
+    const { data: plan, error: e1 } = await supabase
+      .from("card_installment_plans")
+      .insert({ household_id: householdId, card_id, description, category, split_type, split_member: split_type === "specific" ? split_member : null, total_installments })
+      .select().single();
+    if (e1) return { error: e1 };
+
+    // Gera registros para cada parcela
+    const rows = [];
+    let m = first_month, y = first_year;
+    for (let n = 1; n <= total_installments; n++) {
+      rows.push({
+        household_id:       householdId,
+        plan_id:            plan.id,
+        card_id,
+        installment_number: n,
+        total_installments,
+        amount:             n === 1 ? Number(firstAmount) : Number(recurAmount),
+        month:              m,
+        year:               y,
+      });
+      if (m === 11) { m = 0; y++; } else m++;
+    }
+
+    const { error: e2 } = await supabase.from("card_installments").insert(rows);
+    if (e2) return { error: e2 };
+    await fetchAll();
+    return { data: plan };
+  };
+
+  /** Cancela um plano (remove plano + todas as parcelas via CASCADE) */
+  const cancelPlan = async (planId) => {
+    await supabase.from("card_installment_plans").delete().eq("id", planId).eq("household_id", householdId);
+    await fetchAll();
+  };
+
+  return { plans, installments, loading, forMonth, activePlans, createPlan, cancelPlan };
+}

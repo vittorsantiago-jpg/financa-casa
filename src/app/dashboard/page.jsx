@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   useFixedBills, useExpenses, useCreditCards,
-  useCardTransactions, useSavingsGoals, useIncomeSources, useHousehold
+  useCardTransactions, useSavingsGoals, useIncomeSources,
+  useHousehold, useBillPayments, useCardInstallments
 } from "@/lib/hooks/useFinances";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -80,6 +81,26 @@ function STitle({ children, action }) {
 }
 const inpSt = { border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 13px", fontSize:14, outline:"none", color:C.text, background:"#fff", fontFamily:"inherit", width:"100%", boxSizing:"border-box" };
 function Input(p)  { return <input {...p}  style={{...inpSt,...(p.style||{})}} />; }
+
+/** Máscara de moeda brasileira — digita centavos, formata automaticamente.
+ *  value: string numérica ("1461.37") | onChange: (stringValue) => void  */
+function CurrencyInput({ value, onChange, ...props }) {
+  const fmt = (v) => {
+    const num = parseFloat(v);
+    if (!v || isNaN(num) || num === 0) return "";
+    return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const handle = (e) => {
+    const digits = e.target.value.replace(/\D/g, "");
+    if (!digits) { onChange(""); return; }
+    onChange(String(parseInt(digits, 10) / 100));
+  };
+  return (
+    <input {...props} type="text" inputMode="numeric"
+      value={fmt(value)} onChange={handle} placeholder="0,00"
+      style={{...inpSt,...(props.style||{})}} />
+  );
+}
 function Select({ children, ...p }) { return <select {...p} style={{...inpSt,...(p.style||{})}}>{children}</select>; }
 function Btn({ children, variant="primary", ...p }) {
   const vs = { primary:{background:C.primary,color:"#fff"}, ghost:{background:"transparent",color:C.primary,border:`1.5px solid ${C.primary}`}, danger:{background:C.danger,color:"#fff"} };
@@ -131,7 +152,9 @@ export default function Dashboard() {
   const cards   = useCreditCards(householdId);
   const txs     = useCardTransactions(householdId);
   const goals   = useSavingsGoals(householdId);
-  const income  = useIncomeSources(householdId);
+  const income    = useIncomeSources(householdId);
+  const billPay   = useBillPayments(householdId);
+  const instHook  = useCardInstallments(householdId);
 
   const loading = !householdId || bills.loading || income.loading;
 
@@ -140,6 +163,7 @@ export default function Dashboard() {
   const mExp    = exps.data.filter(e=>e.year===year&&e.month===month);
   const mTxs    = txs.data.filter(t=>t.year===year&&t.month===month);
   const mInc    = income.data.filter(s=>s.year===year&&s.month===month);
+  const mInst   = instHook.forMonth(month, year); // parcelas do mês
 
   // Renda recebida e pendente por membro
   const salA = income.receivedTotal(memberA, month, year);
@@ -154,6 +178,8 @@ export default function Dashboard() {
   active.forEach(b=>{ const s=sh(b); fixA+=s[memberA]||0; fixB+=s[memberB]||0; });
   mExp.forEach(e=>{ if(e.pay_method==="ticket"){ticket+=Number(e.amount);return;} const s=sh(e); varA+=s[memberA]||0; varB+=s[memberB]||0; });
   mTxs.forEach(t=>{ const s=sh(t); cardA+=s[memberA]||0; cardB+=s[memberB]||0; });
+  // Parcelas do mês também entram na conta do cartão
+  mInst.forEach(i=>{ const s=splitShare(i.amount, i.plan?.split_type||"half", i.plan?.split_member, memberA, memberB); cardA+=s[memberA]||0; cardB+=s[memberB]||0; });
 
   const totA = fixA+varA+cardA, totB = fixB+varB+cardB;
   const pctA = salAeff>0 ? totA/salAeff : 0;
@@ -182,6 +208,7 @@ export default function Dashboard() {
   const TABS = [
     { id:"dashboard",   icon:"🏠", label:"Início"  },
     { id:"renda",       icon:"💰", label:"Renda"   },
+    { id:"contas",      icon:"📅", label:"Contas"  },
     { id:"fixas",       icon:"📋", label:"Fixas"   },
     { id:"lancamentos", icon:"💸", label:"Gastos"  },
     { id:"cartoes",     icon:"💳", label:"Cartões" },
@@ -190,8 +217,8 @@ export default function Dashboard() {
 
   const shared = {
     memberA, memberB, householdId, month, year,
-    mExp, mTxs, mInc, active, sh,
-    bills, exps, cards, txs, goals, income,
+    mExp, mTxs, mInc, mInst, active, sh,
+    bills, exps, cards, txs, goals, income, billPay, instHook,
     salA, salB, salAeff, salBeff,
     fixA, fixB, varA, varB, cardA, cardB,
     totA, totB, pctA, pctB, ticket, catData,
@@ -229,6 +256,7 @@ export default function Dashboard() {
       <div style={{ maxWidth:960, margin:"0 auto", padding:"18px 14px 90px" }}>
         {tab==="dashboard"    && <DashTab    {...shared} />}
         {tab==="renda"        && <RendaTab   {...shared} />}
+        {tab==="contas"       && <ContasTab  {...shared} />}
         {tab==="fixas"        && <FixasTab   {...shared} />}
         {tab==="lancamentos"  && <LancTab    {...shared} />}
         {tab==="cartoes"      && <CartoesTab {...shared} />}
@@ -470,7 +498,7 @@ function RendaTab({ memberA, memberB, income, mInc, month, year }) {
             <Input placeholder="Ex: Cliente ABC — Projeto X" value={fvName} onChange={e=>setFvName(e.target.value)}/>
           </Field>
           <Field label="Valor recebido (R$)">
-            <Input type="number" placeholder="0,00" value={fvAmt} onChange={e=>setFvAmt(e.target.value)}/>
+            <CurrencyInput value={fvAmt} onChange={setFvAmt}/>
           </Field>
           <Field label="Data de recebimento">
             <Input type="date" value={fvDate} onChange={e=>setFvDate(e.target.value)}/>
@@ -520,7 +548,7 @@ function RendaTab({ memberA, memberB, income, mInc, month, year }) {
             <Input placeholder="Ex: Empresa Principal, Empresa Secundária…" value={fhName} onChange={e=>setFhName(e.target.value)}/>
           </Field>
           <Field label="Salário esperado (R$)">
-            <Input type="number" placeholder="0,00" value={fhAmt} onChange={e=>setFhAmt(e.target.value)}/>
+            <CurrencyInput value={fhAmt} onChange={setFhAmt}/>
           </Field>
           <div style={{ display:"flex", alignItems:"flex-end" }}>
             <Btn onClick={addCLT} style={{ width:"100%" }}>+ Adicionar Emprego</Btn>
@@ -549,7 +577,7 @@ function RendaTab({ memberA, memberB, income, mInc, month, year }) {
                   </div>
                   {marking===s.id && (
                     <div style={{ marginTop:12, padding:"12px 14px", background:"#fffbeb", borderRadius:10, display:"grid", gridTemplateColumns:"1fr 1fr auto auto", gap:10, alignItems:"end" }}>
-                      <Field label="Valor recebido (R$)"><Input type="number" value={markAmt} onChange={e=>setMarkAmt(e.target.value)}/></Field>
+                      <Field label="Valor recebido (R$)"><CurrencyInput value={markAmt} onChange={setMarkAmt}/></Field>
                       <Field label="Data de recebimento"><Input type="date" value={markDate} onChange={e=>setMarkDate(e.target.value)}/></Field>
                       <Btn variant="success" onClick={()=>markReceived(s.id)}>💾 Salvar</Btn>
                       <Btn variant="ghost" onClick={()=>setMarking(null)}>Cancelar</Btn>
@@ -595,7 +623,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Field label="Nome" span={2}><Input placeholder="Ex: Aluguel, Netflix…" value={form.name} onChange={e=>f("name")(e.target.value)}/></Field>
           <Field label="Categoria"><Select value={form.category} onChange={e=>f("category")(e.target.value)}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
-          <Field label="Valor (R$)"><Input type="number" placeholder="0,00" value={form.amount} onChange={e=>f("amount")(e.target.value)}/></Field>
+          <Field label="Valor (R$)"><CurrencyInput value={form.amount} onChange={v=>f("amount")(v)}/></Field>
           <Field label="Divisão">
             <Select value={form.split_type} onChange={e=>f("split_type")(e.target.value)}>
               <option value="half">50/50</option>
@@ -692,7 +720,7 @@ function LancTab({ exps, memberA, memberB, month, year, mExp }) {
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Field label="Descrição" span={2}><Input placeholder="Ex: Farmácia, Combustível…" value={form.description} onChange={e=>f("description")(e.target.value)}/></Field>
           <Field label="Categoria"><Select value={form.category} onChange={e=>f("category")(e.target.value)}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
-          <Field label="Valor (R$)"><Input type="number" placeholder="0,00" value={form.amount} onChange={e=>f("amount")(e.target.value)}/></Field>
+          <Field label="Valor (R$)"><CurrencyInput value={form.amount} onChange={v=>f("amount")(v)}/></Field>
           <Field label="Forma de pagamento"><Select value={form.pay_method} onChange={e=>f("pay_method")(e.target.value)}>{PAY_METHODS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</Select></Field>
           <Field label="Divisão">
             <Select value={form.split_type} onChange={e=>f("split_type")(e.target.value)}>
@@ -736,15 +764,35 @@ function LancTab({ exps, memberA, memberB, month, year, mExp }) {
 }
 
 // ─── CARTÕES ──────────────────────────────────────────────────────────────────
-function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs }) {
+function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, instHook, sh }) {
   const blankC = { name:"", bank:"", card_limit:"", closing_day:"", due_day:"", owner:"both" };
   const blankT = { card_id:"", description:"", category:"lazer", amount:"", split_type:"half", split_member:"", transaction_date:today() };
-  const [cForm, setCF] = useState(blankC);
-  const [tForm, setTF] = useState(blankT);
+  const blankP = { card_id:"", description:"", category:"roupas", split_type:"half", split_member:"", total_installments:"", firstAmount:"", recurAmount:"", first_month:month, first_year:year };
+  const [cForm, setCF]      = useState(blankC);
+  const [tForm, setTF]      = useState(blankT);
+  const [pForm, setPF]      = useState(blankP);
+  const [instView, setIV]   = useState("transactions"); // "transactions" | "installments"
+  const [adding,   setAdding] = useState(null); // null | "card" | "tx" | "plan"
 
-  const addCard = async () => { if(!cForm.name)return; await cards.insert({...cForm,card_limit:cForm.card_limit?Number(cForm.card_limit):null,closing_day:cForm.closing_day?Number(cForm.closing_day):null,due_day:cForm.due_day?Number(cForm.due_day):null}); setCF(blankC); };
+  const addCard = async () => { if(!cForm.name)return; await cards.insert({...cForm,card_limit:cForm.card_limit?Number(cForm.card_limit):null,closing_day:cForm.closing_day?Number(cForm.closing_day):null,due_day:cForm.due_day?Number(cForm.due_day):null}); setCF(blankC); setAdding(null); };
   const delCard = async id => { if(!confirm("Excluir cartão e transações?"))return; await cards.remove(id); txs.data.filter(t=>t.card_id===id).forEach(t=>txs.remove(t.id)); };
-  const addTx   = async () => { if(!tForm.card_id||!tForm.description||!tForm.amount)return; await txs.insert({...tForm,amount:Number(tForm.amount),month,year}); setTF(p=>({...p,description:"",amount:""})); };
+  const addTx   = async () => { if(!tForm.card_id||!tForm.description||!tForm.amount)return; await txs.insert({...tForm,amount:Number(tForm.amount),month,year}); setTF(p=>({...p,description:"",amount:""})); setAdding(null); };
+  const addPlan = async () => {
+    if (!pForm.card_id||!pForm.description||!pForm.total_installments||!pForm.firstAmount) return;
+    const recurAmt = pForm.recurAmount || pForm.firstAmount;
+    const { error } = await instHook.createPlan({ ...pForm, total_installments: Number(pForm.total_installments), first_month: Number(pForm.first_month), first_year: Number(pForm.first_year), firstAmount: pForm.firstAmount, recurAmount: recurAmt });
+    if (!error) { setPF({...blankP, first_month:month, first_year:year}); setAdding(null); }
+  };
+
+  // Card invoice = regular transactions + installments
+  const cardTotal = (cardId) => {
+    const txTotal   = mTxs.filter(t=>t.card_id===cardId).reduce((a,t)=>a+Number(t.amount),0);
+    const instTotal = mInst.filter(i=>i.card_id===cardId).reduce((a,i)=>a+Number(i.amount),0);
+    return txTotal + instTotal;
+  };
+
+  // Active installment plans (have remaining months)
+  const activePlans = instHook.activePlans(month, year);
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
@@ -754,7 +802,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs }) {
           <Field label="Apelido" span={2}><Input placeholder="Ex: Nubank Vittor" value={cForm.name} onChange={e=>setCF(p=>({...p,name:e.target.value}))}/></Field>
           <Field label="Banco / Bandeira"><Input placeholder="Ex: Nubank Mastercard" value={cForm.bank} onChange={e=>setCF(p=>({...p,bank:e.target.value}))}/></Field>
           <Field label="Dono"><Select value={cForm.owner} onChange={e=>setCF(p=>({...p,owner:e.target.value}))}><option value="both">Ambos</option><option value={memberA}>{memberA}</option><option value={memberB}>{memberB}</option></Select></Field>
-          <Field label="Limite (R$)"><Input type="number" value={cForm.card_limit} onChange={e=>setCF(p=>({...p,card_limit:e.target.value}))}/></Field>
+          <Field label="Limite (R$)"><CurrencyInput value={cForm.card_limit} onChange={v=>setCF(p=>({...p,card_limit:v}))}/></Field>
           <Field label="Dia fechamento"><Input type="number" placeholder="25" min={1} max={31} value={cForm.closing_day} onChange={e=>setCF(p=>({...p,closing_day:e.target.value}))}/></Field>
           <Field label="Dia vencimento"><Input type="number" placeholder="5"  min={1} max={31} value={cForm.due_day}     onChange={e=>setCF(p=>({...p,due_day:e.target.value}))}/></Field>
         </div>
@@ -764,7 +812,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs }) {
       {cards.data.length>0&&(
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:13 }}>
           {cards.data.map(c=>{
-            const spent=mTxs.filter(t=>t.card_id===c.id).reduce((a,t)=>a+Number(t.amount),0);
+            const spent = cardTotal(c.id);
             const lim=Number(c.card_limit)||0; const u=lim>0?spent/lim:0;
             const uc=u>.8?C.danger:u>.5?C.warn:C.primary;
             return <Card key={c.id} style={{ borderTop:`4px solid ${uc}` }}>
@@ -780,14 +828,23 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs }) {
         </div>
       )}
 
+      {/* Botões de ação */}
       {cards.data.length>0&&(
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Btn onClick={()=>setAdding(adding==="tx"?null:"tx")} style={{ width:"100%" }}>💸 Lançamento avulso</Btn>
+          <Btn onClick={()=>setAdding(adding==="plan"?null:"plan")} variant="ghost" style={{ width:"100%" }}>🔄 Compra parcelada</Btn>
+        </div>
+      )}
+
+      {/* Formulário: Lançamento avulso */}
+      {adding==="tx"&&cards.data.length>0&&(
         <Card>
-          <STitle>💸 Lançar na Fatura</STitle>
+          <STitle>💸 Novo Lançamento Avulso</STitle>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
             <Field label="Cartão"><Select value={tForm.card_id} onChange={e=>setTF(p=>({...p,card_id:e.target.value}))}><option value="">Selecione…</option>{cards.data.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
             <Field label="Categoria"><Select value={tForm.category} onChange={e=>setTF(p=>({...p,category:e.target.value}))}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
             <Field label="Descrição" span={2}><Input placeholder="Ex: iFood, Amazon…" value={tForm.description} onChange={e=>setTF(p=>({...p,description:e.target.value}))}/></Field>
-            <Field label="Valor (R$)"><Input type="number" value={tForm.amount} onChange={e=>setTF(p=>({...p,amount:e.target.value}))}/></Field>
+            <Field label="Valor (R$)"><CurrencyInput value={tForm.amount} onChange={v=>setTF(p=>({...p,amount:v}))}/></Field>
             <Field label="Divisão">
               <Select value={tForm.split_type} onChange={e=>setTF(p=>({...p,split_type:e.target.value}))}>
                 <option value="half">50/50</option><option value="specific">Um só paga</option>
@@ -800,33 +857,105 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs }) {
         </Card>
       )}
 
-      {mTxs.length>0&&(
+      {/* Formulário: Compra parcelada */}
+      {adding==="plan"&&cards.data.length>0&&(
+        <Card style={{ border:`2px solid ${C.primary}` }}>
+          <STitle>🔄 Nova Compra Parcelada</STitle>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+            <Field label="Cartão"><Select value={pForm.card_id} onChange={e=>setPF(p=>({...p,card_id:e.target.value}))}><option value="">Selecione…</option>{cards.data.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+            <Field label="Categoria"><Select value={pForm.category} onChange={e=>setPF(p=>({...p,category:e.target.value}))}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
+            <Field label="Descrição" span={2}><Input placeholder="Ex: TV Samsung, Zara, Nike…" value={pForm.description} onChange={e=>setPF(p=>({...p,description:e.target.value}))}/></Field>
+            <Field label="Nº de parcelas"><Input type="number" placeholder="Ex: 12" min={2} max={48} value={pForm.total_installments} onChange={e=>setPF(p=>({...p,total_installments:e.target.value}))}/></Field>
+            <Field label="Divisão">
+              <Select value={pForm.split_type} onChange={e=>setPF(p=>({...p,split_type:e.target.value}))}>
+                <option value="half">50/50</option><option value="specific">Um só paga</option>
+              </Select>
+            </Field>
+            {pForm.split_type==="specific"&&<Field label="Quem paga?" span={2}><Select value={pForm.split_member} onChange={e=>setPF(p=>({...p,split_member:e.target.value}))}><option value="">Selecione…</option><option value={memberA}>{memberA}</option><option value={memberB}>{memberB}</option></Select></Field>}
+            <Field label="Valor 1ª parcela (R$)"><CurrencyInput value={pForm.firstAmount} onChange={v=>setPF(p=>({...p,firstAmount:v}))}/></Field>
+            <Field label="Demais parcelas (R$)"><CurrencyInput value={pForm.recurAmount} onChange={v=>setPF(p=>({...p,recurAmount:v}))}/></Field>
+            <div style={{ gridColumn:"1/-1", background:C.pLight, borderRadius:10, padding:"8px 14px", fontSize:12, color:C.primary }}>
+              💡 Deixe "Demais parcelas" em branco se todas forem iguais à primeira. Mês de início: <strong>{MONTHS_FULL[month]} {year}</strong>
+            </div>
+          </div>
+          <Btn onClick={addPlan} style={{ width:"100%" }}>Criar Parcelamento</Btn>
+        </Card>
+      )}
+
+      {(mTxs.length>0||mInst.length>0)&&(
         <Card>
-          <STitle>🧾 Faturas — {MONTHS_FULL[month]} {year}</STitle>
+          <STitle>🧾 Fatura — {MONTHS_FULL[month]} {year}</STitle>
           {cards.data.map(c=>{
-            const ts=mTxs.filter(t=>t.card_id===c.id).sort((a,b)=>b.transaction_date.localeCompare(a.transaction_date));
-            if(!ts.length) return null;
-            const tot=ts.reduce((a,t)=>a+Number(t.amount),0);
-            return <div key={c.id} style={{ marginBottom:18 }}>
-              <div style={{ fontWeight:800, fontSize:14, color:C.primary, marginBottom:8, paddingBottom:6, borderBottom:`1.5px solid ${C.border}` }}>💳 {c.name} — <span style={{ color:C.danger }}>{fmt(tot)}</span></div>
-              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-                {ts.map(t=>{
-                  const cat=CATS[t.category]||{};
-                  return <div key={t.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 11px", border:`1.5px solid ${C.border}`, borderRadius:10 }}>
-                    <span>{cat.icon}</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700 }}>{t.description}</div>
-                      <div style={{ fontSize:11, color:C.muted }}>{t.transaction_date} · {t.split_type==="half"?"50/50":`${t.split_member} paga`}</div>
-                    </div>
-                    <div style={{ fontWeight:800, fontSize:14 }}>{fmt(t.amount)}</div>
-                    <button onClick={()=>txs.remove(t.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer" }}>🗑️</button>
-                  </div>;
-                })}
+            const txs_c  = mTxs.filter(t=>t.card_id===c.id).sort((a,b)=>b.transaction_date.localeCompare(a.transaction_date));
+            const inst_c = mInst.filter(i=>i.card_id===c.id);
+            if(!txs_c.length&&!inst_c.length) return null;
+            return (
+              <div key={c.id} style={{ marginBottom:18 }}>
+                <div style={{ fontWeight:800, fontSize:14, color:C.primary, marginBottom:8, paddingBottom:6, borderBottom:`1.5px solid ${C.border}` }}>
+                  💳 {c.name} — <span style={{ color:C.danger }}>{fmt(cardTotal(c.id))}</span>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+                  {txs_c.map(t=>{
+                    const cat=CATS[t.category]||{};
+                    return <div key={t.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 11px", border:`1.5px solid ${C.border}`, borderRadius:10 }}>
+                      <span>{cat.icon}</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:700 }}>{t.description}</div>
+                        <div style={{ fontSize:11, color:C.muted }}>{t.transaction_date} · {t.split_type==="half"?"50/50":`${t.split_member} paga`}</div>
+                      </div>
+                      <div style={{ fontWeight:800, fontSize:14 }}>{fmt(t.amount)}</div>
+                      <button onClick={()=>txs.remove(t.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer" }}>🗑️</button>
+                    </div>;
+                  })}
+                  {inst_c.map(i=>{
+                    const cat=CATS[i.plan?.category]||{};
+                    return <div key={i.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 11px", border:`1.5px solid #a5b4fc`, borderRadius:10, background:"#eef2ff" }}>
+                      <span>{cat.icon||"🔄"}</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:700 }}>
+                          {i.plan?.description}
+                          <span style={{ fontSize:10, background:C.primary, color:"#fff", borderRadius:6, padding:"2px 6px", marginLeft:6 }}>{i.installment_number}/{i.total_installments}</span>
+                        </div>
+                        <div style={{ fontSize:11, color:C.muted }}>Parcela · {i.plan?.split_type==="half"?"50/50":`${i.plan?.split_member} paga`}</div>
+                      </div>
+                      <div style={{ fontWeight:800, fontSize:14 }}>{fmt(i.amount)}</div>
+                    </div>;
+                  })}
+                </div>
               </div>
-            </div>;
+            );
           })}
         </Card>
       )}
+
+      {activePlans.length>0&&(
+        <Card>
+          <STitle>🔄 Parcelamentos Ativos ({activePlans.length})</STitle>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {activePlans.map(p=>{
+              const allInst   = instHook.installments.filter(i=>i.plan_id===p.id);
+              const ref       = year*12+month;
+              const remaining = allInst.filter(i=>(i.year*12+i.month)>=ref).length;
+              const paid_c    = allInst.length - remaining;
+              const cat       = CATS[p.category]||{};
+              return (
+                <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 14px", border:`1.5px solid ${C.border}`, borderRadius:12, background:"#f8fafc" }}>
+                  <span style={{ fontSize:20 }}>{cat.icon||"🔄"}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:14 }}>{p.description}</div>
+                    <div style={{ fontSize:11, color:C.muted, marginBottom:4 }}>
+                      {cards.data.find(c=>c.id===p.card_id)?.name} · {paid_c}/{p.total_installments} pagas · {remaining} restantes
+                    </div>
+                    <ProgressBar value={paid_c} max={p.total_installments} color={C.primary} height={5}/>
+                  </div>
+                  <button onClick={()=>{if(confirm(`Cancelar "${p.description}"? Remove as parcelas futuras.`)) instHook.cancelPlan(p.id);}} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", fontSize:12 }}>🗑️</button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       {cards.data.length===0&&<Card><Empty msg="Nenhum cartão cadastrado. Adicione acima 👆"/></Card>}
     </div>
   );
@@ -879,8 +1008,8 @@ function MetasTab({ goals, active, mExp, month, year }) {
             <Field label="Ícone"><Select value={form.icon} onChange={e=>setForm(p=>({...p,icon:e.target.value}))} style={{ width:65 }}>{GOAL_ICONS.map(i=><option key={i} value={i}>{i}</option>)}</Select></Field>
             <div style={{ flex:1 }}><Field label="Nome da meta"><Input placeholder="Ex: Reserva de emergência, Viagem…" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field></div>
           </div>
-          <Field label="Valor alvo (R$)"><Input type="number" placeholder="0,00" value={form.target_amount} onChange={e=>setForm(p=>({...p,target_amount:e.target.value}))}/></Field>
-          <Field label="Já guardaram (R$)"><Input type="number" placeholder="0,00" value={form.current_amount} onChange={e=>setForm(p=>({...p,current_amount:e.target.value}))}/></Field>
+          <Field label="Valor alvo (R$)"><CurrencyInput value={form.target_amount} onChange={v=>setForm(p=>({...p,target_amount:v}))}/></Field>
+          <Field label="Já guardaram (R$)"><CurrencyInput value={form.current_amount} onChange={v=>setForm(p=>({...p,current_amount:v}))}/></Field>
           <Field label="Prazo (opcional)" span={2}><Input type="date" value={form.deadline} onChange={e=>setForm(p=>({...p,deadline:e.target.value}))}/></Field>
         </div>
         <Btn onClick={add} style={{ width:"100%" }}>Criar Meta</Btn>
@@ -911,12 +1040,186 @@ function MetasTab({ goals, active, mExp, month, year }) {
           {!done&&<div style={{ fontSize:12, color:C.muted, marginTop:6 }}>Faltam {fmt(tgt-cur)}</div>}
           <div style={{ marginTop:12 }}>
             {depId===g.id
-              ? <div style={{ display:"flex", gap:8 }}><Input type="number" placeholder="Valor depositado…" value={dep} onChange={e=>setDep(e.target.value)} style={{ flex:1 }}/><Btn onClick={()=>deposit(g.id)}>💾 Salvar</Btn><Btn variant="ghost" onClick={()=>{setDepId(null);setDep("");}}>Cancelar</Btn></div>
+              ? <div style={{ display:"flex", gap:8 }}><CurrencyInput value={dep} onChange={setDep} style={{ flex:1 }}/><Btn onClick={()=>deposit(g.id)}>💾 Salvar</Btn><Btn variant="ghost" onClick={()=>{setDepId(null);setDep("");}}>Cancelar</Btn></div>
               : <Btn variant="ghost" onClick={()=>setDepId(g.id)} style={{ width:"100%" }}>➕ Registrar Depósito</Btn>
             }
           </div>
         </Card>;
       })}
+    </div>
+  );
+}
+
+// ─── CONTAS A PAGAR ───────────────────────────────────────────────────────────
+function ContasTab({ billPay, bills, cards, txs, month, year }) {
+  const [newName,   setNewName]   = useState("");
+  const [newAmt,    setNewAmt]    = useState("");
+  const [newDueDay, setNewDueDay] = useState("");
+  const [marking,   setMarking]   = useState(null); // { id, mode: 'paid'|'paid_late' }
+  const [interest,  setInterest]  = useState("");
+  const [generated, setGenerated] = useState(false);
+
+  // Auto-gera entradas ao abrir a aba
+  useEffect(() => {
+    if (!generated && billPay.data !== undefined && !billPay.loading) {
+      billPay.autoGenerate(bills.data, cards.data, txs.data, month, year)
+        .then(() => setGenerated(true));
+    }
+  }, [billPay.loading, month, year]);
+
+  // Regenera quando muda o mês
+  useEffect(() => { setGenerated(false); }, [month, year]);
+
+  const mBills = billPay.forPeriod(month, year)
+    .sort((a, b) => (a.due_day || 99) - (b.due_day || 99));
+
+  // Totais
+  const totalEsperado = mBills.reduce((s, b) => s + Number(b.amount || 0), 0);
+  const totalPago     = mBills.filter(b => b.status !== "pending").reduce((s, b) => s + Number(b.amount || 0), 0);
+  const totalPendente = mBills.filter(b => b.status === "pending").reduce((s, b) => s + Number(b.amount || 0), 0);
+  const totalJuros    = mBills.filter(b => b.status === "paid_late").reduce((s, b) => s + Number(b.interest_amount || 0), 0);
+
+  const confirmMark = async () => {
+    if (!marking) return;
+    if (marking.mode === "paid") {
+      await billPay.markPaid(marking.id);
+    } else {
+      await billPay.markPaidLate(marking.id, interest);
+    }
+    setMarking(null); setInterest("");
+  };
+
+  const addManual = async () => {
+    if (!newName) return;
+    await billPay.insert({
+      name: newName, amount: newAmt ? Number(newAmt) : null,
+      due_day: newDueDay ? Number(newDueDay) : null,
+      status: "pending", source_type: "manual", month, year,
+    });
+    setNewName(""); setNewAmt(""); setNewDueDay("");
+  };
+
+  const STATUS_CONFIG = {
+    pending:  { label:"⏳ Pendente",         color:C.warn,    bg:"#fffbeb" },
+    paid:     { label:"✅ Pago",             color:C.success, bg:"#f0fdf4" },
+    paid_late:{ label:"⚠️ Pago com atraso", color:"#d97706", bg:"#fff7ed" },
+  };
+
+  const SOURCE_ICON = { fixed_bill:"📋", credit_card:"💳", manual:"📄" };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+
+      {/* Resumo do mês */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+        <Card style={{ borderTop:`4px solid ${C.primary}`, padding:"14px 16px" }}>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>💰 Total esperado</div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.primary }}>{fmt(totalEsperado)}</div>
+        </Card>
+        <Card style={{ borderTop:`4px solid ${C.success}`, padding:"14px 16px" }}>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>✅ Já pago</div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.success }}>{fmt(totalPago)}</div>
+        </Card>
+        <Card style={{ borderTop:`4px solid ${C.warn}`, padding:"14px 16px" }}>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>⏳ Pendente</div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.warn }}>{fmt(totalPendente)}</div>
+        </Card>
+        <Card style={{ borderTop:`4px solid ${C.danger}`, padding:"14px 16px" }}>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>💸 Juros pagos</div>
+          <div style={{ fontSize:20, fontWeight:900, color:totalJuros > 0 ? C.danger : C.muted }}>{fmt(totalJuros)}</div>
+        </Card>
+      </div>
+
+      {/* Lista de contas */}
+      <Card>
+        <STitle>📅 {MONTHS_FULL[month]} {year} ({mBills.length} contas)</STitle>
+        {mBills.length === 0
+          ? <Empty msg="Carregando contas… abra a aba novamente se demorar." />
+          : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {mBills.map(b => {
+                const st  = STATUS_CONFIG[b.status] || STATUS_CONFIG.pending;
+                const isM = marking?.id === b.id;
+                return (
+                  <div key={b.id} style={{ border:`1.5px solid ${b.status!=="pending"?"#e2e8f0":C.border}`, background:st.bg, borderRadius:14, padding:"12px 14px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                      <span style={{ fontSize:20, minWidth:26 }}>{SOURCE_ICON[b.source_type] || "📄"}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontWeight:700, fontSize:14 }}>{b.name}</div>
+                        <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>
+                          {b.due_day ? `Vence dia ${b.due_day}` : "Sem vencimento"}
+                          {b.status === "paid_late" && b.interest_amount > 0 &&
+                            <span style={{ color:C.danger, fontWeight:600 }}> · Juros: {fmt(b.interest_amount)}</span>}
+                        </div>
+                      </div>
+                      <div style={{ textAlign:"right", minWidth:90 }}>
+                        <div style={{ fontWeight:900, fontSize:15 }}>{b.amount ? fmt(b.amount) : "—"}</div>
+                        <div style={{ fontSize:10, fontWeight:700, color:st.color }}>{st.label}</div>
+                      </div>
+                    </div>
+
+                    {/* Ações */}
+                    {b.status === "pending" && !isM && (
+                      <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                        <Btn onClick={()=>setMarking({id:b.id,mode:"paid"})} style={{ flex:1, padding:"8px 0", fontSize:13 }}>✅ Marcar pago</Btn>
+                        <Btn onClick={()=>setMarking({id:b.id,mode:"paid_late"})} variant="ghost" style={{ flex:1, padding:"8px 0", fontSize:13, color:C.warn, borderColor:C.warn }}>⚠️ Pago com atraso</Btn>
+                      </div>
+                    )}
+
+                    {/* Formulário inline de confirmação */}
+                    {isM && (
+                      <div style={{ marginTop:10, background:"rgba(255,255,255,.7)", borderRadius:10, padding:"12px 14px" }}>
+                        {marking.mode === "paid_late" && (
+                          <Field label="Juros pagos (R$)" span={2}>
+                            <CurrencyInput value={interest} onChange={setInterest} placeholder="0,00" style={{ marginBottom:10 }} />
+                          </Field>
+                        )}
+                        <div style={{ display:"flex", gap:8 }}>
+                          <Btn onClick={confirmMark} style={{ flex:1, padding:"8px 0", fontSize:13 }}>
+                            {marking.mode === "paid" ? "✅ Confirmar pago" : "⚠️ Confirmar atraso"}
+                          </Btn>
+                          <Btn variant="ghost" onClick={()=>{setMarking(null);setInterest("");}} style={{ padding:"8px 14px", fontSize:13 }}>Cancelar</Btn>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Desfazer pagamento */}
+                    {b.status !== "pending" && (
+                      <button onClick={()=>billPay.markPending(b.id)} style={{ background:"none", border:"none", color:C.muted, fontSize:11, cursor:"pointer", marginTop:6, textDecoration:"underline", fontFamily:"inherit" }}>
+                        Desfazer pagamento
+                      </button>
+                    )}
+
+                    {/* Deletar conta manual */}
+                    {b.source_type === "manual" && (
+                      <button onClick={()=>billPay.remove(b.id)} style={{ background:"none", border:"none", color:C.muted, fontSize:11, cursor:"pointer", marginTop:4, textDecoration:"underline", fontFamily:"inherit", display:"block" }}>
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )
+        }
+      </Card>
+
+      {/* Adicionar conta avulsa */}
+      <Card>
+        <STitle>➕ Adicionar Conta Avulsa</STitle>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+          <Field label="Nome da conta" span={2}>
+            <Input placeholder="Ex: Conta de água, Boleto..." value={newName} onChange={e=>setNewName(e.target.value)} />
+          </Field>
+          <Field label="Valor (R$)">
+            <CurrencyInput value={newAmt} onChange={setNewAmt} />
+          </Field>
+          <Field label="Dia de vencimento">
+            <Input type="number" placeholder="Ex: 15" min={1} max={31} value={newDueDay} onChange={e=>setNewDueDay(e.target.value)} />
+          </Field>
+        </div>
+        <Btn onClick={addManual} style={{ width:"100%" }}>Adicionar</Btn>
+      </Card>
     </div>
   );
 }
