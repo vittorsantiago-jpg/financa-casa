@@ -222,6 +222,7 @@ export default function Dashboard() {
     salA, salB, salAeff, salBeff,
     fixA, fixB, varA, varB, cardA, cardB,
     totA, totB, pctA, pctB, ticket, catData,
+    setTab,
   };
 
   return (
@@ -297,13 +298,193 @@ export default function Dashboard() {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, cardB, totA, totB, pctA, pctB, ticket, catData, active, goals, mExp, mTxs }) {
+function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, cardB, totA, totB, pctA, pctB, ticket, catData, active, goals, mExp, mTxs, setTab }) {
   const totalIncome  = salA + salB;
   const houseFixed   = active.reduce((a,b)=>a+Number(b.amount),0);
   const houseVar     = mExp.filter(e=>e.pay_method!=="ticket").reduce((a,e)=>a+Number(e.amount),0);
   const houseCard    = mTxs.reduce((a,t)=>a+Number(t.amount),0);
   const houseTotal   = houseFixed + houseVar + houseCard;
   const saldo        = totalIncome - houseTotal;
+
+  // Card clicável com feedback visual
+  const ClickCard = ({ children, toTab, style={} }) => (
+    <Card
+      onClick={toTab ? ()=>setTab(toTab) : undefined}
+      style={{
+        ...style,
+        cursor: toTab ? "pointer" : "default",
+        transition:"transform .12s, box-shadow .12s",
+        WebkitTapHighlightColor:"transparent",
+      }}
+      onPointerDown={e=>{ if(toTab) e.currentTarget.style.transform="scale(.98)"; }}
+      onPointerUp={e=>{ e.currentTarget.style.transform="scale(1)"; }}
+      onPointerLeave={e=>{ e.currentTarget.style.transform="scale(1)"; }}
+    >
+      {children}
+      {toTab && (
+        <div style={{ position:"absolute", top:10, right:12, color:C.muted, fontSize:13, opacity:.5 }}>›</div>
+      )}
+    </Card>
+  );
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+      {(!salA && !salB) && (
+        <div style={{ background:"#fffbeb", border:"1.5px solid #fcd34d", borderRadius:12, padding:"12px 16px", color:"#92400e", fontSize:13, fontWeight:500 }}>
+          ⚠️ Registre a renda deste mês na aba <strong>💰 Renda</strong> para ver os indicadores completos.
+        </div>
+      )}
+
+      {/* Cards de resumo — clicáveis */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12 }}>
+        {[
+          { icon:"💵", title:"Renda Total",  value:fmt(totalIncome), sub:`${memberA} + ${memberB}`,      c:C.primary, toTab:"renda"  },
+          { icon:"🏠", title:"Gastos Casa",  value:fmt(houseTotal),  sub:"Fixas + variáveis + cartões",  c:C.danger,  toTab:"contas" },
+          { icon:"✅", title:"Saldo do Mês", value:fmt(saldo),       sub:saldo>=0?"Livre p/ poupança":"Atenção!", c:saldo>=0?C.success:C.danger, toTab:"metas" },
+          ...(ticket>0?[{ icon:"🎟️", title:"Via Ticket", value:fmt(ticket), sub:"Não conta no saldo", c:C.muted, toTab:null }]:[]),
+        ].map(({icon,title,value,sub,c,toTab})=>(
+          <div key={title} onClick={toTab?()=>setTab(toTab):undefined}
+            style={{ background:C.card, borderRadius:18, padding:"16px 18px", boxShadow:"0 2px 10px rgba(79,70,229,.07)", border:`1px solid ${C.border}`, borderTop:`4px solid ${c}`, cursor:toTab?"pointer":"default", position:"relative", transition:"transform .12s", WebkitTapHighlightColor:"transparent" }}
+            onPointerDown={e=>{ if(toTab) e.currentTarget.style.transform="scale(.97)"; }}
+            onPointerUp={e=>{ e.currentTarget.style.transform=""; }}
+            onPointerLeave={e=>{ e.currentTarget.style.transform=""; }}
+          >
+            <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
+            <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>{title}</div>
+            <div style={{ fontSize:21, fontWeight:900, color:c, marginBottom:2 }}>{value}</div>
+            <div style={{ fontSize:11, color:C.muted }}>{sub}</div>
+            {toTab && <div style={{ position:"absolute", top:12, right:14, color:C.muted, fontSize:16, opacity:.4 }}>›</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Cards individuais — clicáveis, vão para Renda */}
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        {[
+          { name:memberA, sal:salA, tot:totA, fix:fixA, vari:varA+cardA, pct:pctA, color:C.primary, bg:"#eef2ff" },
+          { name:memberB, sal:salB, tot:totB, fix:fixB, vari:varB+cardB, pct:pctB, color:C.success, bg:"#f0fdf4" },
+        ].map(p=>{
+          const avail = (p.sal||0) - p.tot;
+          const col   = healthColor(p.pct);
+          return (
+            <div key={p.name}
+              onClick={()=>setTab("renda")}
+              style={{ background:C.card, borderRadius:18, padding:"16px 18px", boxShadow:"0 2px 10px rgba(79,70,229,.07)", border:`1px solid ${C.border}`, cursor:"pointer", position:"relative", transition:"transform .12s", WebkitTapHighlightColor:"transparent" }}
+              onPointerDown={e=>{ e.currentTarget.style.transform="scale(.98)"; }}
+              onPointerUp={e=>{ e.currentTarget.style.transform=""; }}
+              onPointerLeave={e=>{ e.currentTarget.style.transform=""; }}
+            >
+              <div style={{ position:"absolute", top:14, right:14, color:C.muted, fontSize:16, opacity:.4 }}>›</div>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
+                <div style={{ width:44, height:44, borderRadius:"50%", background:p.bg, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:18, color:p.color, flexShrink:0 }}>
+                  {p.name[0].toUpperCase()}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:900, fontSize:16, color:C.text }}>{p.name}</div>
+                  <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
+                    {p.sal > 0 ? `Recebido: ${fmt(p.sal)}` : "Sem renda registrada"}
+                  </div>
+                </div>
+                <Badge color={col}>{healthLabel(p.pct)}</Badge>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.sub, marginBottom:5 }}>
+                  <span>Comprometimento</span>
+                  <span style={{ color:col, fontWeight:800 }}>{p.sal>0?`${(p.pct*100).toFixed(1)}%`:"—"}</span>
+                </div>
+                <ProgressBar value={p.tot} max={p.sal||1} color={col} height={10}/>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+                {[["Fixas",fmt(p.fix),C.text],["Variáveis",fmt(p.vari),C.text],["Disponível",fmt(avail),avail>=0?"#16a34a":C.danger]].map(([l,v,c])=>(
+                  <div key={l} style={{ background:"#f8fafc", borderRadius:10, padding:"8px 10px" }}>
+                    <div style={{ fontSize:10, color:C.muted, fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>{l}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:c }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Gráficos — empilhados (melhor no mobile) */}
+      {catData.length>0 && (
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <Card>
+            <STitle>Gastos por Categoria</STitle>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85}
+                  label={({percent})=>`${(percent*100).toFixed(0)}%`} labelLine={false} fontSize={12}>
+                  {catData.map((e,i)=><Cell key={i} fill={e.color}/>)}
+                </Pie>
+                <Tooltip formatter={v=>fmt(v)} allowEscapeViewBox={{ x:false, y:true }}/>
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:8 }}>
+              {catData.map((c,i)=>(
+                <span key={i} style={{ fontSize:12, color:C.sub, display:"flex", alignItems:"center", gap:5 }}>
+                  <span style={{ width:9,height:9,borderRadius:"50%",background:c.color,display:"inline-block",flexShrink:0 }}/>
+                  {c.name}
+                </span>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <STitle>Comprometimento</STitle>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={[
+                  {name:memberA, Comprometido:totA, Disponível:Math.max(0,salA-totA)},
+                  {name:memberB, Comprometido:totB, Disponível:Math.max(0,salB-totB)},
+                ]}
+                margin={{ top:5, right:10, left:0, bottom:5 }}
+              >
+                <XAxis dataKey="name" tick={{fontSize:13}}/>
+                <YAxis tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v} tick={{fontSize:11}} width={36}/>
+                <Tooltip
+                  formatter={v=>fmt(v)}
+                  allowEscapeViewBox={{ x:false, y:true }}
+                  wrapperStyle={{ zIndex:10 }}
+                />
+                <Legend wrapperStyle={{fontSize:12}}/>
+                <Bar dataKey="Comprometido" fill="#ef4444" radius={[5,5,0,0]}/>
+                <Bar dataKey="Disponível"   fill="#10b981" radius={[5,5,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </div>
+      )}
+
+      {/* Metas — clicável */}
+      {goals.data.length>0 && (
+        <div
+          onClick={()=>setTab("metas")}
+          style={{ background:C.card, borderRadius:18, padding:"20px 22px", boxShadow:"0 2px 10px rgba(79,70,229,.07)", border:`1px solid ${C.border}`, cursor:"pointer", position:"relative", WebkitTapHighlightColor:"transparent" }}
+          onPointerDown={e=>{ e.currentTarget.style.transform="scale(.98)"; }}
+          onPointerUp={e=>{ e.currentTarget.style.transform=""; }}
+          onPointerLeave={e=>{ e.currentTarget.style.transform=""; }}
+        >
+          <div style={{ position:"absolute", top:14, right:16, color:C.muted, fontSize:16, opacity:.4 }}>›</div>
+          <STitle>🎯 Metas de Poupança</STitle>
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            {goals.data.map(g=>{
+              const p=Math.min((Number(g.current_amount)||0)/(Number(g.target_amount)||1),1);
+              return <div key={g.id}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5, fontSize:13 }}>
+                  <span style={{ fontWeight:700 }}>{g.icon} {g.name}</span>
+                  <span style={{ color:C.sub }}>{fmt(g.current_amount)} / {fmt(g.target_amount)}</span>
+                </div>
+                <ProgressBar value={g.current_amount} max={g.target_amount} color={p>=1?C.success:C.primary} height={9}/>
+              </div>;
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
