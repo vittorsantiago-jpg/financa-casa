@@ -5,82 +5,58 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 const C = {
-  bg:"#f0f4ff", header:"#312e81", primary:"#4f46e5", success:"#059669",
+  bg:"#f0f4ff", primary:"#4f46e5", success:"#059669",
   danger:"#dc2626", border:"#e2e8f0", muted:"#94a3b8", text:"#1e1b4b", card:"#ffffff",
 };
 const inp = {
   width:"100%", border:`1.5px solid ${C.border}`, borderRadius:10,
   padding:"12px 14px", fontSize:15, outline:"none", fontFamily:"inherit",
-  boxSizing:"border-box", color:C.text,
+  boxSizing:"border-box", color:C.text, background:"#fff",
 };
 
 export default function SetupPage() {
   const router   = useRouter();
   const supabase = createClient();
 
-  const [mode, setMode]           = useState("create"); // "create" | "join"
-  const [displayName, setName]    = useState("");
-  const [householdName, setHname] = useState("");
-  const [inviteCode, setCode]     = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [mode,          setMode]    = useState("create");
+  const [displayName,   setName]    = useState("");
+  const [householdName, setHname]   = useState("");
+  const [inviteCode,    setCode]    = useState("");
+  const [loading,       setLoading] = useState(false);
+  const [error,         setError]   = useState("");
 
   const createHousehold = async () => {
     setLoading(true); setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Sessão expirada. Faça login novamente."); setLoading(false); return; }
-
-    // 1. Criar household
-    const { data: hh, error: e1 } = await supabase
-      .from("households")
-      .insert({ name: householdName.trim() })
-      .select()
-      .single();
-    if (e1) { setError(e1.message); setLoading(false); return; }
-
-    // 2. Adicionar usuário como owner
-    const { error: e2 } = await supabase
-      .from("household_members")
-      .insert({ household_id: hh.id, user_id: user.id, display_name: displayName.trim(), role: "owner" });
-    if (e2) { setError(e2.message); setLoading(false); return; }
-
+    const { error: err } = await supabase.rpc("create_household", {
+      p_name:         householdName.trim(),
+      p_display_name: displayName.trim(),
+    });
+    if (err) { setError(err.message); setLoading(false); return; }
     router.push("/dashboard");
     router.refresh();
   };
 
   const joinHousehold = async () => {
     setLoading(true); setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Sessão expirada."); setLoading(false); return; }
-
-    // Buscar household pelo código de convite
-    const { data: hh, error: e1 } = await supabase
-      .from("households")
-      .select("id, name")
-      .eq("invite_code", inviteCode.trim().toUpperCase())
-      .single();
-    if (e1 || !hh) { setError("Código de convite inválido ou expirado."); setLoading(false); return; }
-
-    // Verificar se já é membro
-    const { data: existing } = await supabase
-      .from("household_members")
-      .select("id")
-      .eq("household_id", hh.id)
-      .eq("user_id", user.id)
-      .single();
-    if (existing) { setError("Você já faz parte desta casa."); setLoading(false); return; }
-
-    // Entrar como member
-    const { error: e2 } = await supabase
-      .from("household_members")
-      .insert({ household_id: hh.id, user_id: user.id, display_name: displayName.trim(), role: "member" });
-    if (e2) { setError(e2.message); setLoading(false); return; }
-
+    const { error: err } = await supabase.rpc("join_household", {
+      p_invite_code:  inviteCode.trim(),
+      p_display_name: displayName.trim(),
+    });
+    if (err) {
+      const msg = err.message.includes("inválido") ? "Código de convite inválido ou expirado."
+                : err.message.includes("já faz parte") ? "Você já faz parte desta casa."
+                : err.message;
+      setError(msg); setLoading(false); return;
+    }
     router.push("/dashboard");
     router.refresh();
   };
 
-  const submit = (e) => { e.preventDefault(); mode === "create" ? createHousehold() : joinHousehold(); };
+  const submit = (e) => {
+    e.preventDefault();
+    if (!displayName.trim()) { setError("Digite seu nome."); return; }
+    mode === "create" ? createHousehold() : joinHousehold();
+  };
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
@@ -95,7 +71,8 @@ export default function SetupPage() {
           {[["create","Criar nova casa"],["join","Entrar com código"]].map(([m,l])=>(
             <button key={m} onClick={()=>{setMode(m);setError("");}} style={{
               flex:1, padding:"9px 0", border:"none", borderRadius:9, fontSize:13, fontWeight:700,
-              cursor:"pointer", background:mode===m?C.card:"transparent", color:mode===m?C.primary:C.muted,
+              cursor:"pointer", fontFamily:"inherit",
+              background:mode===m?C.card:"transparent", color:mode===m?C.primary:C.muted,
               boxShadow:mode===m?"0 1px 4px rgba(0,0,0,.08)":"none", transition:"all .15s",
             }}>{l}</button>
           ))}
@@ -103,19 +80,20 @@ export default function SetupPage() {
 
         <form onSubmit={submit} style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <div>
-            <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:"block", marginBottom:5, textTransform:"uppercase" }}>Seu nome</label>
+            <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:".06em" }}>Seu nome</label>
             <input required placeholder="Ex: Vittor" value={displayName} onChange={e=>setName(e.target.value)} style={inp} />
           </div>
 
           {mode === "create" ? (
             <div>
-              <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:"block", marginBottom:5, textTransform:"uppercase" }}>Nome da casa</label>
-              <input required placeholder="Ex: Casa Vittor & Hemerson" value={householdName} onChange={e=>setHname(e.target.value)} style={inp} />
+              <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:".06em" }}>Nome da casa</label>
+              <input required placeholder="Ex: Nossa Casa" value={householdName} onChange={e=>setHname(e.target.value)} style={inp} />
             </div>
           ) : (
             <div>
-              <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:"block", marginBottom:5, textTransform:"uppercase" }}>Código de convite</label>
-              <input required placeholder="Ex: AB1C2D" value={inviteCode} onChange={e=>setCode(e.target.value)} style={{ ...inp, textTransform:"uppercase", letterSpacing:".12em", fontWeight:700 }} maxLength={8} />
+              <label style={{ fontSize:12, fontWeight:700, color:C.muted, display:"block", marginBottom:5, textTransform:"uppercase", letterSpacing:".06em" }}>Código de convite</label>
+              <input required placeholder="Ex: AB1C2D3E" value={inviteCode} onChange={e=>setCode(e.target.value)}
+                style={{ ...inp, textTransform:"uppercase", letterSpacing:".12em", fontWeight:700 }} maxLength={8} />
               <p style={{ margin:"6px 0 0", fontSize:12, color:C.muted }}>Peça o código para quem criou a casa.</p>
             </div>
           )}
@@ -129,8 +107,9 @@ export default function SetupPage() {
           )}
 
           <button type="submit" disabled={loading} style={{
-            background:C.primary, color:"#fff", border:"none", borderRadius:12, padding:"13px 0",
-            fontSize:16, fontWeight:800, cursor:loading?"wait":"pointer", opacity:loading?.7:1, marginTop:4,
+            background:C.primary, color:"#fff", border:"none", borderRadius:12,
+            padding:"13px 0", fontSize:16, fontWeight:800, cursor:loading?"wait":"pointer",
+            opacity:loading?.7:1, marginTop:4, fontFamily:"inherit",
           }}>
             {loading ? "Aguarde…" : mode==="create" ? "Criar Casa" : "Entrar na Casa"}
           </button>
