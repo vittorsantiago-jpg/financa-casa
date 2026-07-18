@@ -205,14 +205,17 @@ export default function Dashboard() {
     </div>
   );
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const TABS = [
-    { id:"dashboard",   icon:"🏠", label:"Início"  },
-    { id:"renda",       icon:"💰", label:"Renda"   },
-    { id:"contas",      icon:"📅", label:"Contas"  },
-    { id:"fixas",       icon:"📋", label:"Fixas"   },
-    { id:"lancamentos", icon:"💸", label:"Gastos"  },
-    { id:"cartoes",     icon:"💳", label:"Cartões" },
-    { id:"metas",       icon:"🎯", label:"Metas"   },
+    { id:"dashboard",   icon:"🏠", label:"Início"         },
+    { id:"renda",       icon:"💰", label:"Renda"          },
+    { id:"contas",      icon:"📅", label:"Contas a Pagar" },
+    { id:"fixas",       icon:"📋", label:"Contas Fixas"   },
+    { id:"lancamentos", icon:"💸", label:"Gastos"         },
+    { id:"cartoes",     icon:"💳", label:"Cartões"        },
+    { id:"metas",       icon:"🎯", label:"Metas"          },
+    { id:"config",      icon:"⚙️", label:"Configurações" },
   ];
 
   const shared = {
@@ -229,32 +232,38 @@ export default function Dashboard() {
     <AppLock>
     <div style={{ fontFamily:"'Inter',system-ui,sans-serif", background:C.bg, minHeight:"100vh", color:C.text, colorScheme:"light" }}>
 
+      {/* ── SIDE DRAWER ── */}
+      <NavDrawer
+        open={drawerOpen} onClose={()=>setDrawerOpen(false)}
+        tab={tab} setTab={setTab} tabs={TABS}
+        household={household} memberA={memberA} memberB={memberB}
+        onLogout={logout}
+      />
+
       {/* ── HEADER ── */}
-      <div style={{ background:C.header, color:"#fff", padding:"14px 16px 14px" }}>
-        <div style={{ maxWidth:960, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-          {/* Logo + nome */}
-          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ width:38, height:38, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13, color:"#fff", flexShrink:0 }}>V♥H</div>
+      <div style={{ background:C.header, color:"#fff", padding:"14px 16px" }}>
+        <div style={{ maxWidth:960, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+          {/* Hamburger + logo */}
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={()=>setDrawerOpen(true)} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:10, width:40, height:40, color:"#fff", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:5, flexShrink:0 }}>
+              {[0,1,2].map(i=><div key={i} style={{ width:18, height:2, background:"#fff", borderRadius:2 }}/>)}
+            </button>
             <div>
               <div style={{ fontWeight:900, fontSize:16, lineHeight:1.2 }}>{household?.name || "Finanças da Casa"}</div>
               <div style={{ opacity:.6, fontSize:11 }}>{memberA} & {memberB}</div>
             </div>
           </div>
-          {/* Navegação de mês + ações */}
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,.13)", borderRadius:12, padding:"6px 12px" }}>
-              <button onClick={()=>navMonth(-1)} style={{ background:"none", border:"none", color:"#fff", fontSize:18, cursor:"pointer", lineHeight:1, padding:0 }}>‹</button>
-              <span style={{ fontWeight:700, fontSize:13, minWidth:120, textAlign:"center" }}>{MONTHS_FULL[month]} {year}</span>
-              <button onClick={()=>navMonth( 1)} style={{ background:"none", border:"none", color:"#fff", fontSize:18, cursor:"pointer", lineHeight:1, padding:0 }}>›</button>
-            </div>
-            <button onClick={()=>setTab("config")} title="Configurações" style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:10, width:36, height:36, color:"#fff", cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center" }}>⚙️</button>
-            <button onClick={logout} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:10, padding:"7px 12px", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:700 }}>Sair</button>
+          {/* Navegador de mês */}
+          <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,.13)", borderRadius:12, padding:"7px 12px" }}>
+            <button onClick={()=>navMonth(-1)} style={{ background:"none", border:"none", color:"#fff", fontSize:20, cursor:"pointer", lineHeight:1, padding:0 }}>‹</button>
+            <span style={{ fontWeight:700, fontSize:13, minWidth:110, textAlign:"center" }}>{MONTHS_FULL[month]} {year}</span>
+            <button onClick={()=>navMonth( 1)} style={{ background:"none", border:"none", color:"#fff", fontSize:20, cursor:"pointer", lineHeight:1, padding:0 }}>›</button>
           </div>
         </div>
       </div>
 
       {/* ── CONTENT ── */}
-      <div style={{ maxWidth:960, margin:"0 auto", padding:"18px 14px 90px" }}>
+      <div style={{ maxWidth:960, margin:"0 auto", padding:"18px 14px 32px" }}>
         {tab==="dashboard"    && <DashTab    {...shared} />}
         {tab==="renda"        && <RendaTab   {...shared} />}
         {tab==="contas"       && <ContasTab  {...shared} />}
@@ -265,35 +274,69 @@ export default function Dashboard() {
         {tab==="config"       && <ConfigTab  {...shared} household={household} members={members} supabase={supabase} />}
       </div>
 
-      {/* ── BOTTOM NAV ── */}
-      <nav style={{
-        position:"fixed", bottom:0, left:0, right:0,
-        background:"#fff", borderTop:`1px solid ${C.border}`,
-        display:"flex", zIndex:200,
-        paddingBottom:"env(safe-area-inset-bottom)",
-        boxShadow:"0 -4px 16px rgba(79,70,229,.10)",
-      }}>
-        {TABS.map(t => {
-          const active = tab === t.id;
-          return (
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{
-              flex:1, display:"flex", flexDirection:"column", alignItems:"center",
-              justifyContent:"center", padding:"9px 2px 7px",
-              border:"none", background:"none", cursor:"pointer",
-              fontFamily:"inherit", WebkitTapHighlightColor:"transparent",
-              color: active ? C.primary : C.muted,
-              position:"relative",
-            }}>
-              {active && <div style={{ position:"absolute", top:0, left:"20%", right:"20%", height:3, background:C.primary, borderRadius:"0 0 3px 3px" }}/>}
-              <span style={{ fontSize:20, lineHeight:1, marginBottom:3 }}>{t.icon}</span>
-              <span style={{ fontSize:9, fontWeight: active ? 800 : 500, letterSpacing:".02em" }}>{t.label}</span>
-            </button>
-          );
-        })}
-      </nav>
-
     </div>
     </AppLock>
+  );
+}
+
+// ─── SIDE DRAWER NAVIGATION ──────────────────────────────────────────────────
+function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, memberB, onLogout }) {
+  const go = (id) => { setTab(id); onClose(); };
+  return (
+    <>
+      {/* Overlay escuro */}
+      <div onClick={onClose} style={{
+        position:"fixed", inset:0, background:"rgba(0,0,0,.5)", zIndex:300,
+        opacity:open?1:0, pointerEvents:open?"all":"none", transition:"opacity .2s",
+      }}/>
+      {/* Painel lateral */}
+      <div style={{
+        position:"fixed", top:0, left:0, bottom:0, width:290,
+        background:"#fff", zIndex:301,
+        transform:open?"translateX(0)":"translateX(-110%)",
+        transition:"transform .27s cubic-bezier(.4,0,.2,1)",
+        display:"flex", flexDirection:"column",
+        boxShadow:"6px 0 30px rgba(0,0,0,.18)",
+      }}>
+        {/* Cabeçalho do drawer */}
+        <div style={{ background:C.header, padding:"20px 18px 16px", color:"#fff" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13 }}>V♥H</div>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:8, width:34, height:34, color:"#fff", cursor:"pointer", fontSize:18, fontFamily:"inherit" }}>✕</button>
+          </div>
+          <div style={{ fontWeight:900, fontSize:17 }}>{household?.name || "Finanças da Casa"}</div>
+          <div style={{ fontSize:12, opacity:.65, marginTop:2 }}>{memberA} & {memberB}</div>
+        </div>
+
+        {/* Itens de navegação */}
+        <div style={{ flex:1, overflowY:"auto", padding:"8px 0" }}>
+          {tabs.map(t=>(
+            <button key={t.id} onClick={()=>go(t.id)} style={{
+              display:"flex", alignItems:"center", gap:14,
+              width:"100%", padding:"15px 18px",
+              border:"none", borderLeft:tab===t.id?`4px solid ${C.primary}`:"4px solid transparent",
+              background:tab===t.id?C.pLight:"transparent",
+              color:tab===t.id?C.primary:C.text,
+              fontSize:16, fontWeight:tab===t.id?800:500,
+              cursor:"pointer", fontFamily:"inherit", textAlign:"left",
+              WebkitTapHighlightColor:"transparent",
+            }}>
+              <span style={{ fontSize:22, width:32, display:"inline-block" }}>{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Botão sair */}
+        <div style={{ padding:"16px 18px", borderTop:`1px solid ${C.border}`, paddingBottom:"calc(16px + env(safe-area-inset-bottom))" }}>
+          <button onClick={onLogout} style={{
+            width:"100%", padding:"13px 0", background:C.dLight, color:C.danger,
+            border:"none", borderRadius:12, fontWeight:700, fontSize:15,
+            cursor:"pointer", fontFamily:"inherit",
+          }}>Sair da conta</button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -726,20 +769,28 @@ function FixasTab({ bills, memberA, memberB, sh }) {
           <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
             {bills.data.map(b=>{
               const cat=CATS[b.category]||{}; const s=sh(b); const off=b.active===false;
-              return <div key={b.id} style={{ display:"flex", alignItems:"center", gap:11, padding:"11px 14px", border:`1.5px solid ${C.border}`, borderRadius:13, opacity:off?.45:1 }}>
-                <span style={{ fontSize:22, minWidth:28 }}>{cat.icon}</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:700, fontSize:14 }}>{b.name} {off&&<Badge color={C.muted}>pausada</Badge>}</div>
-                  <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>
-                    {b.split_type==="half"?`${memberA}:${fmt(s[memberA])} · ${memberB}:${fmt(s[memberB])}`:`${b.split_member} paga tudo`}
-                    {b.due_day&&` · vence dia ${b.due_day}`}
+              return <div key={b.id} style={{ padding:"12px 14px", border:`1.5px solid ${C.border}`, borderRadius:13, opacity:off?.45:1, background:off?"#f8fafc":"#fff" }}>
+                {/* Linha 1: ícone + nome + valor */}
+                <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                  <span style={{ fontSize:20, flexShrink:0 }}>{cat.icon}</span>
+                  <div style={{ flex:1, fontWeight:700, fontSize:14, lineHeight:1.3 }}>
+                    {b.name} {off&&<Badge color={C.muted}>pausada</Badge>}
                   </div>
+                  <div style={{ fontWeight:900, fontSize:15, color:C.text, flexShrink:0 }}>{fmt(b.amount)}</div>
                 </div>
-                <div style={{ fontWeight:900, fontSize:16, minWidth:90, textAlign:"right" }}>{fmt(b.amount)}</div>
-                <div style={{ display:"flex", gap:5 }}>
-                  <button onClick={()=>toggle(b.id)} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:32, height:32, cursor:"pointer" }}>{off?"▶":"⏸"}</button>
-                  <button onClick={()=>edit(b)} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:32, height:32, cursor:"pointer" }}>✏️</button>
-                  <button onClick={()=>del(b.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:32, height:32, cursor:"pointer" }}>🗑️</button>
+                {/* Linha 2: detalhes + botões */}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingLeft:30 }}>
+                  <div style={{ fontSize:11, color:C.muted, flex:1, paddingRight:8 }}>
+                    {b.split_type==="half"
+                      ? `V: ${fmt(s[memberA])} · H: ${fmt(s[memberB])}`
+                      : `${b.split_member} paga tudo`}
+                    {b.due_day&&` · dia ${b.due_day}`}
+                  </div>
+                  <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                    <button onClick={()=>toggle(b.id)} title={off?"Ativar":"Pausar"} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", fontSize:15 }}>{off?"▶":"⏸"}</button>
+                    <button onClick={()=>edit(b)} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", fontSize:15 }}>✏️</button>
+                    <button onClick={()=>del(b.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:34, height:34, cursor:"pointer", fontSize:15 }}>🗑️</button>
+                  </div>
                 </div>
               </div>;
             })}
@@ -1044,14 +1095,14 @@ function MetasTab({ goals, active, mExp, month, year }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       {est>0&&(
-        <div style={{ background:`linear-gradient(135deg,${C.header},#5b21b6)`, borderRadius:18, padding:"20px 22px", color:"#fff" }}>
-          <div style={{ fontWeight:900, fontSize:16, marginBottom:6 }}>🛡️ Reserva de Emergência Recomendada</div>
-          <p style={{ margin:"0 0 14px", opacity:.85, fontSize:13 }}>Com gastos mensais estimados de <strong>{fmt(est)}</strong>:</p>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            {[["3 meses (mínimo)",est*3],["6 meses (ideal)",est*6]].map(([l,v])=>(
-              <div key={l} style={{ background:"rgba(255,255,255,.15)", borderRadius:12, padding:"12px 16px" }}>
-                <div style={{ fontSize:11, opacity:.75, fontWeight:700, textTransform:"uppercase" }}>{l}</div>
-                <div style={{ fontSize:22, fontWeight:900, marginTop:4 }}>{fmt(v)}</div>
+        <div style={{ background:`linear-gradient(135deg,${C.header},#5b21b6)`, borderRadius:18, padding:"20px 18px", color:"#fff" }}>
+          <div style={{ fontWeight:900, fontSize:16, marginBottom:6, textAlign:"center" }}>🛡️ Reserva de Emergência Recomendada</div>
+          <p style={{ margin:"0 0 16px", opacity:.85, fontSize:13, textAlign:"center" }}>Com gastos mensais estimados de <strong>{fmt(est)}</strong>:</p>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            {[["3 meses\n(mínimo)",est*3],["6 meses\n(ideal)",est*6]].map(([l,v])=>(
+              <div key={l} style={{ background:"rgba(255,255,255,.15)", borderRadius:14, padding:"14px 12px", textAlign:"center" }}>
+                <div style={{ fontSize:10, opacity:.8, fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:6, whiteSpace:"pre-line", lineHeight:1.3 }}>{l}</div>
+                <div style={{ fontSize:20, fontWeight:900, letterSpacing:"-.02em" }}>{fmt(v)}</div>
               </div>
             ))}
           </div>
