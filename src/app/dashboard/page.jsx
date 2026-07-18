@@ -349,27 +349,6 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
   const houseTotal   = houseFixed + houseVar + houseCard;
   const saldo        = totalIncome - houseTotal;
 
-  // Card clicável com feedback visual
-  const ClickCard = ({ children, toTab, style={} }) => (
-    <Card
-      onClick={toTab ? ()=>setTab(toTab) : undefined}
-      style={{
-        ...style,
-        cursor: toTab ? "pointer" : "default",
-        transition:"transform .12s, box-shadow .12s",
-        WebkitTapHighlightColor:"transparent",
-      }}
-      onPointerDown={e=>{ if(toTab) e.currentTarget.style.transform="scale(.98)"; }}
-      onPointerUp={e=>{ e.currentTarget.style.transform="scale(1)"; }}
-      onPointerLeave={e=>{ e.currentTarget.style.transform="scale(1)"; }}
-    >
-      {children}
-      {toTab && (
-        <div style={{ position:"absolute", top:10, right:12, color:C.muted, fontSize:13, opacity:.5 }}>›</div>
-      )}
-    </Card>
-  );
-
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       {(!salA && !salB) && (
