@@ -127,6 +127,7 @@ export default function Dashboard() {
   const [householdId, setHouseholdId] = useState(null);
   const [userId,      setUserId]      = useState(null);
   const [tab,         setTab]         = useState("dashboard");
+  const [drawerOpen,  setDrawerOpen]  = useState(false);
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year,  setYear]  = useState(now.getFullYear());
@@ -204,8 +205,6 @@ export default function Dashboard() {
       <p style={{ color:C.primary,fontWeight:700,fontSize:16,margin:0 }}>Carregando…</p>
     </div>
   );
-
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const TABS = [
     { id:"dashboard",   icon:"🏠", label:"Início"         },
