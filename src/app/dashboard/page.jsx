@@ -1,8 +1,3 @@
-Aqui está o código completo, já limpo e corrigido. Removi exatamente o bloco de `return` duplicado que estava solto entre o componente `DashTab` e o `RendaTab`.
-
-É só clicar em "Copiar código" aqui embaixo e substituir tudo no seu arquivo `page.jsx`:
-
-```jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -490,6 +485,7 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
     </div>
   );
 }
+
 
 // ─── RENDA ────────────────────────────────────────────────────────────────────
 function RendaTab({ memberA, memberB, income, mInc, month, year }) {
