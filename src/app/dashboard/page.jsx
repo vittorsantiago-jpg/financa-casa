@@ -1019,7 +1019,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
           <STitle>🔄 Parcelamentos Ativos ({activePlans.length})</STitle>
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             {activePlans.map(p=>{
-              const allInst   = instHook.installments.filter(i=>i.plan_id===p.id);
+              const allInst   = instHook.installments.data.filter(i=>i.plan_id===p.id);
               const ref       = year*12+month;
               const remaining = allInst.filter(i=>(i.year*12+i.month)>=ref).length;
               const paid_c    = allInst.length - remaining;

@@ -220,91 +220,69 @@ export function useBillPayments(householdId) {
 }
 
 /**
- * useCardInstallments — compras parceladas no cartão.
- * Gerencia planos (a compra) e parcelas individuais (uma por mês).
- * Suporta valores variáveis: primeira parcela diferente das demais.
+ * useCardInstallments — compras parceladas.
+ * Usa dois useTable em vez de hooks manuais,
+ * evitando closure estale com supabase (causava React error #310).
  */
 export function useCardInstallments(householdId) {
-  const [plans,        setPlans]   = useState([]);
-  const [installments, setInst]    = useState([]);
-  const [loading,      setLoading] = useState(true);
-  const supabase = createClient();
+  const plansBase = useTable("card_installment_plans", householdId, { order: "created_at", asc: false });
+  const instsBase = useTable("card_installments",      householdId, { order: "year",       asc: true  });
 
-  const fetchAll = useCallback(async () => {
-    if (!householdId) return;
-    const [{ data: p }, { data: i }] = await Promise.all([
-      supabase.from("card_installment_plans").select("*").eq("household_id", householdId).order("created_at", { ascending: false }),
-      supabase.from("card_installments").select("*").eq("household_id", householdId).order("year").order("month").order("installment_number"),
-    ]);
-    setPlans(p || []);
-    setInst(i || []);
-    setLoading(false);
-  }, [householdId]);
-
-  useEffect(() => {
-    fetchAll();
-    if (!householdId) return;
-    const ch = supabase.channel(`installments_${householdId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "card_installment_plans", filter: `household_id=eq.${householdId}` }, fetchAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "card_installments",      filter: `household_id=eq.${householdId}` }, fetchAll)
-      .subscribe();
-    return () => supabase.removeChannel(ch);
-  }, [householdId, fetchAll]);
-
-  /** Parcelas de um mês, enriquecidas com dados do plano (split, descrição) */
+  /** Parcelas de um mês/ano, enriquecidas com dados do plano */
   const forMonth = (month, year) =>
-    installments
+    instsBase.data
       .filter(i => i.month === month && i.year === year)
-      .map(i => ({ ...i, plan: plans.find(p => p.id === i.plan_id) || {} }));
+      .map(i => ({ ...i, plan: plansBase.data.find(p => p.id === i.plan_id) || {} }));
 
-  /** Planos que ainda têm parcelas futuras ou do mês atual */
+  /** Planos que ainda têm parcelas no mês atual ou futuras */
   const activePlans = (month, year) => {
     const ref = year * 12 + month;
-    return plans.filter(p =>
-      installments.some(i => i.plan_id === p.id && (i.year * 12 + i.month) >= ref)
+    return plansBase.data.filter(p =>
+      instsBase.data.some(i => i.plan_id === p.id && (i.year * 12 + i.month) >= ref)
     );
   };
 
-  /**
-   * Cria um plano e gera todas as parcelas.
-   * firstAmount  = valor da 1ª parcela
-   * recurAmount  = valor das parcelas 2 até N (pode ser igual à 1ª)
-   */
+  /** Cria um plano e insere todas as parcelas em batch */
   const createPlan = async ({ card_id, description, category, split_type, split_member, total_installments, first_month, first_year, firstAmount, recurAmount }) => {
-    const { data: plan, error: e1 } = await supabase
-      .from("card_installment_plans")
-      .insert({ household_id: householdId, card_id, description, category, split_type, split_member: split_type === "specific" ? split_member : null, total_installments })
-      .select().single();
-    if (e1) return { error: e1 };
+    const { data: plan, error: e1 } = await plansBase.insert({
+      card_id, description, category, split_type,
+      split_member: split_type === "specific" ? split_member : null,
+      total_installments,
+    });
+    if (e1 || !plan) return { error: e1 };
 
-    // Gera registros para cada parcela
     const rows = [];
-    let m = first_month, y = first_year;
+    let m = Number(first_month), y = Number(first_year);
     for (let n = 1; n <= total_installments; n++) {
       rows.push({
-        household_id:       householdId,
-        plan_id:            plan.id,
-        card_id,
-        installment_number: n,
-        total_installments,
-        amount:             n === 1 ? Number(firstAmount) : Number(recurAmount),
-        month:              m,
-        year:               y,
+        household_id: householdId, plan_id: plan.id, card_id,
+        installment_number: n, total_installments,
+        amount: n === 1 ? Number(firstAmount) : Number(recurAmount || firstAmount),
+        month: m, year: y,
       });
       if (m === 11) { m = 0; y++; } else m++;
     }
 
+    const supabase = createClient();
     const { error: e2 } = await supabase.from("card_installments").insert(rows);
     if (e2) return { error: e2 };
-    await fetchAll();
+    await instsBase.refetch();
     return { data: plan };
   };
 
-  /** Cancela um plano (remove plano + todas as parcelas via CASCADE) */
+  /** Cancela um plano — CASCADE remove as parcelas no banco */
   const cancelPlan = async (planId) => {
-    await supabase.from("card_installment_plans").delete().eq("id", planId).eq("household_id", householdId);
-    await fetchAll();
+    await plansBase.remove(planId);
+    await instsBase.refetch();
   };
 
-  return { plans, installments, loading, forMonth, activePlans, createPlan, cancelPlan };
+  return {
+    plans:        plansBase,
+    installments: instsBase,   // useTable — use .data para acessar o array
+    loading:      plansBase.loading || instsBase.loading,
+    forMonth,
+    activePlans,
+    createPlan,
+    cancelPlan,
+  };
 }
