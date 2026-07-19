@@ -286,3 +286,171 @@ export function useCardInstallments(householdId) {
     cancelPlan,
   };
 }
+
+// ─── CÁLCULOS DE AMORTIZAÇÃO (funções puras, sem hooks) ──────────────────────
+
+/** Taxa mensal a partir da taxa e tipo informados */
+function toMonthlyRate(rate, rateType) {
+  if (rateType === "annual") return Math.pow(1 + rate / 100, 1 / 12) - 1;
+  return rate / 100;
+}
+
+/** Calcula parcela Price (PMT) */
+function calcPMT(balance, monthlyRate, n) {
+  if (monthlyRate === 0 || !n) return balance / (n || 1);
+  return balance * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1);
+}
+
+/** Gera tabela de amortização a partir do saldo atual */
+export function generateAmortizationTable(debt) {
+  const rate      = toMonthlyRate(debt.interest_rate, debt.rate_type);
+  let   balance   = Number(debt.current_balance);
+  const remaining = (debt.total_installments || 0) - (debt.paid_installments || 0);
+  const rows      = [];
+
+  if (debt.amortization_type === "revolving") {
+    // Rotativo: sem prazo fixo — mostra os próximos 12 meses se pagar só o mínimo
+    for (let i = 1; i <= 12 && balance > 0.01; i++) {
+      const interest  = balance * rate;
+      const minPay    = Math.max(interest + 1, Number(debt.monthly_payment || 0));
+      const principal = Math.max(0, minPay - interest);
+      balance         = Math.max(0, balance - principal);
+      rows.push({ n: i, payment: minPay, interest, principal, balance });
+    }
+    return rows;
+  }
+
+  if (debt.amortization_type === "price") {
+    const pmt = calcPMT(balance, rate, remaining);
+    for (let i = 1; i <= remaining && balance > 0.01; i++) {
+      const interest  = balance * rate;
+      const principal = Math.max(0, pmt - interest);
+      balance         = Math.max(0, balance - principal);
+      rows.push({ n: debt.paid_installments + i, payment: pmt, interest, principal, balance });
+    }
+    return rows;
+  }
+
+  if (debt.amortization_type === "sac") {
+    const fixedPrincipal = Number(debt.original_amount) / (debt.total_installments || 1);
+    for (let i = 1; i <= remaining && balance > 0.01; i++) {
+      const interest  = balance * rate;
+      const principal = Math.min(fixedPrincipal, balance);
+      const payment   = principal + interest;
+      balance         = Math.max(0, balance - principal);
+      rows.push({ n: debt.paid_installments + i, payment, interest, principal, balance });
+    }
+    return rows;
+  }
+
+  return rows;
+}
+
+/**
+ * useDebts — dívidas (cartão rotativo, empréstimos, financiamentos).
+ * Usa dois useTable para seguir o padrão do restante do arquivo.
+ */
+export function useDebts(householdId) {
+  const debtsBase    = useTable("debts",         householdId, { order: "created_at", asc: false });
+  const paymentsBase = useTable("debt_payments",  householdId, { order: "created_at", asc: false });
+
+  /** Total do saldo devedor de todas as dívidas ativas */
+  const totalBalance  = debtsBase.data.filter(d=>d.active).reduce((s,d)=>s+Number(d.current_balance),0);
+  const totalOriginal = debtsBase.data.reduce((s,d)=>s+Number(d.original_amount),0);
+  const totalJurosPaid = paymentsBase.data.reduce((s,p)=>s+Number(p.interest_portion),0);
+
+  /** Parcela mensal total das dívidas ativas de um membro */
+  const monthlyCommitment = (memberName, memberA, memberB) =>
+    debtsBase.data
+      .filter(d => d.active && (d.member_name === memberName || d.member_name === "both"))
+      .reduce((s, d) => {
+        const pmt = Number(d.monthly_payment || 0);
+        if (d.split_type === "half") return s + pmt / 2;
+        if (d.member_name === memberName) return s + pmt;
+        return s;
+      }, 0);
+
+  /**
+   * Registra o pagamento de uma parcela.
+   * Calcula automaticamente juros e amortização e atualiza o saldo.
+   */
+  const makePayment = async (debtId, customAmount = null) => {
+    const debt = debtsBase.data.find(d => d.id === debtId);
+    if (!debt) return { error: "Dívida não encontrada" };
+
+    const rate       = toMonthlyRate(debt.interest_rate, debt.rate_type);
+    const interest   = Number(debt.current_balance) * rate;
+    const pmt        = customAmount ?? Number(debt.monthly_payment ?? 0);
+    const principal  = Math.max(0, pmt - interest);
+    const newBalance = Math.max(0, Number(debt.current_balance) - principal);
+    const today      = new Date().toISOString().slice(0, 10);
+
+    const { error: e1 } = await paymentsBase.insert({
+      debt_id:          debtId,
+      payment_date:     today,
+      month:            new Date().getMonth(),
+      year:             new Date().getFullYear(),
+      total_paid:       pmt,
+      interest_portion: interest,
+      principal_portion: principal,
+      balance_before:   debt.current_balance,
+      balance_after:    newBalance,
+    });
+    if (e1) return { error: e1 };
+
+    const newPaid = debt.amortization_type !== "revolving"
+      ? (debt.paid_installments || 0) + 1
+      : debt.paid_installments;
+
+    await debtsBase.update(debtId, {
+      current_balance:   newBalance,
+      paid_installments: newPaid,
+      active:            newBalance > 0.01,
+    });
+
+    return { error: null };
+  };
+
+  /** Calcula a próxima parcela esperada (sem modificar o banco) */
+  const nextPayment = (debt) => {
+    const rate      = toMonthlyRate(debt.interest_rate, debt.rate_type);
+    const interest  = Number(debt.current_balance) * rate;
+    const remaining = (debt.total_installments || 0) - (debt.paid_installments || 0);
+
+    if (debt.amortization_type === "price") {
+      const pmt = calcPMT(Number(debt.current_balance), rate, remaining);
+      return { total: pmt, interest, principal: pmt - interest };
+    }
+    if (debt.amortization_type === "sac") {
+      const principal = Number(debt.original_amount) / (debt.total_installments || 1);
+      return { total: principal + interest, interest, principal };
+    }
+    // revolving
+    return { total: Number(debt.monthly_payment || interest), interest, principal: Math.max(0, Number(debt.monthly_payment||0) - interest) };
+  };
+
+  /** Calcula e armazena o monthly_payment na hora de criar a dívida */
+  const computeMonthlyPayment = (formData) => {
+    const rate      = toMonthlyRate(Number(formData.interest_rate), formData.rate_type);
+    const balance   = Number(formData.current_balance);
+    const n         = Number(formData.total_installments) - Number(formData.paid_installments || 0);
+
+    if (formData.amortization_type === "price")    return calcPMT(balance, rate, n);
+    if (formData.amortization_type === "sac")      return (Number(formData.original_amount) / Number(formData.total_installments)) + balance * rate;
+    if (formData.amortization_type === "revolving") return balance * rate; // mínimo = só juros
+    return 0;
+  };
+
+  return {
+    debts:           debtsBase,
+    payments:        paymentsBase,
+    loading:         debtsBase.loading || paymentsBase.loading,
+    totalBalance,
+    totalOriginal,
+    totalJurosPaid,
+    monthlyCommitment,
+    makePayment,
+    nextPayment,
+    computeMonthlyPayment,
+  };
+}

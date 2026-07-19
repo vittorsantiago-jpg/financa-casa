@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import {
   useFixedBills, useExpenses, useCreditCards,
   useCardTransactions, useSavingsGoals, useIncomeSources,
-  useHousehold, useBillPayments, useCardInstallments
+  useHousehold, useBillPayments, useCardInstallments, useDebts,
+  generateAmortizationTable,
 } from "@/lib/hooks/useFinances";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
@@ -156,6 +157,7 @@ export default function Dashboard() {
   const income    = useIncomeSources(householdId);
   const billPay   = useBillPayments(householdId);
   const instHook  = useCardInstallments(householdId);
+  const debtHook  = useDebts(householdId);
 
   const loading = !householdId || bills.loading || income.loading;
 
@@ -177,6 +179,13 @@ export default function Dashboard() {
 
   let fixA=0, fixB=0, varA=0, varB=0, cardA=0, cardB=0, ticket=0;
   active.forEach(b=>{ const s=sh(b); fixA+=s[memberA]||0; fixB+=s[memberB]||0; });
+  // Parcelas mensais de dívidas entram como custo fixo
+  debtHook.debts.data.filter(d=>d.active).forEach(d=>{
+    const pmt=Number(d.monthly_payment||0);
+    if(d.split_type==="half"){ fixA+=pmt/2; fixB+=pmt/2; }
+    else if(d.member_name===memberA) fixA+=pmt;
+    else fixB+=pmt;
+  });
   mExp.forEach(e=>{ if(e.pay_method==="ticket"){ticket+=Number(e.amount);return;} const s=sh(e); varA+=s[memberA]||0; varB+=s[memberB]||0; });
   mTxs.forEach(t=>{ const s=sh(t); cardA+=s[memberA]||0; cardB+=s[memberB]||0; });
   // Parcelas do mês também entram na conta do cartão
@@ -214,13 +223,14 @@ export default function Dashboard() {
     { id:"lancamentos", icon:"💸", label:"Gastos"         },
     { id:"cartoes",     icon:"💳", label:"Cartões"        },
     { id:"metas",       icon:"🎯", label:"Metas"          },
+    { id:"dividas",     icon:"📉", label:"Dívidas"        },
     { id:"config",      icon:"⚙️", label:"Configurações" },
   ];
 
   const shared = {
     memberA, memberB, householdId, month, year,
     mExp, mTxs, mInc, mInst, active, sh,
-    bills, exps, cards, txs, goals, income, billPay, instHook,
+    bills, exps, cards, txs, goals, income, billPay, instHook, debtHook,
     salA, salB, salAeff, salBeff,
     fixA, fixB, varA, varB, cardA, cardB,
     totA, totB, pctA, pctB, ticket, catData,
@@ -270,6 +280,7 @@ export default function Dashboard() {
         {tab==="lancamentos"  && <LancTab    {...shared} />}
         {tab==="cartoes"      && <CartoesTab {...shared} />}
         {tab==="metas"        && <MetasTab   {...shared} />}
+        {tab==="dividas"      && <DiviTab    {...shared} />}
         {tab==="config"       && <ConfigTab  {...shared} household={household} members={members} supabase={supabase} />}
       </div>
 
@@ -1305,6 +1316,309 @@ function ContasTab({ billPay, bills, cards, txs, month, year }) {
         </div>
         <Btn onClick={addManual} style={{ width:"100%" }}>Adicionar</Btn>
       </Card>
+    </div>
+  );
+}
+
+// ─── DÍVIDAS ─────────────────────────────────────────────────────────────────
+const DEBT_TYPES = {
+  credit_card: { icon:"💳", label:"Cartão Rotativo" },
+  loan:        { icon:"💰", label:"Empréstimo"      },
+  financing:   { icon:"🚗", label:"Financiamento"   },
+};
+const AMORT_TYPES = {
+  price:     "Price (parcela fixa)",
+  sac:       "SAC (parcela decrescente)",
+  revolving: "Rotativo (sem prazo fixo)",
+};
+
+function DiviTab({ debtHook, memberA, memberB }) {
+  const blank = {
+    name:"", debt_type:"loan", creditor:"", member_name:memberA,
+    split_type:"half", original_amount:"", current_balance:"",
+    interest_rate:"", rate_type:"monthly", amortization_type:"price",
+    total_installments:"", paid_installments:"0", start_date:today(), notes:"",
+  };
+  const [form,    setForm]    = useState(blank);
+  const [adding,  setAdding]  = useState(false);
+  const [expand,  setExpand]  = useState(null);   // id da dívida com tabela expandida
+  const [paying,  setPaying]  = useState(null);   // id que está pagando
+  const [payAmt,  setPayAmt]  = useState("");
+  const [showAll, setShowAll] = useState({});
+
+  const f = k => v => setForm(p=>({...p,[k]:v}));
+
+  const addDebt = async () => {
+    if (!form.name||!form.original_amount||!form.current_balance||!form.interest_rate) return;
+    const pmt = debtHook.computeMonthlyPayment({
+      ...form,
+      interest_rate:      Number(form.interest_rate),
+      original_amount:    Number(form.original_amount),
+      current_balance:    Number(form.current_balance),
+      total_installments: Number(form.total_installments)||0,
+      paid_installments:  Number(form.paid_installments)||0,
+    });
+    await debtHook.debts.insert({
+      ...form,
+      original_amount:    Number(form.original_amount),
+      current_balance:    Number(form.current_balance),
+      interest_rate:      Number(form.interest_rate),
+      total_installments: form.amortization_type==="revolving"?null:Number(form.total_installments),
+      paid_installments:  Number(form.paid_installments)||0,
+      monthly_payment:    pmt,
+      active:             true,
+    });
+    setForm(blank); setAdding(false);
+  };
+
+  const confirmPayment = async (debtId) => {
+    const custom = payAmt ? Number(payAmt) : null;
+    await debtHook.makePayment(debtId, custom);
+    setPaying(null); setPayAmt("");
+  };
+
+  const activeDebts   = debtHook.debts.data.filter(d=>d.active);
+  const inactiveDebts = debtHook.debts.data.filter(d=>!d.active);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+
+      {/* Resumo */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+        {[
+          { icon:"📉", label:"Total em Dívidas", value:fmt(debtHook.totalBalance),   color:C.danger  },
+          { icon:"💸", label:"Juros Pagos",       value:fmt(debtHook.totalJurosPaid), color:C.warn    },
+          { icon:"📋", label:"Valor Original",    value:fmt(debtHook.totalOriginal),  color:C.muted   },
+          { icon:"✅", label:"Já Quitado",        value:fmt(debtHook.totalOriginal-debtHook.totalBalance), color:C.success },
+        ].map(({icon,label,value,color})=>(
+          <Card key={label} style={{ borderTop:`4px solid ${color}`, padding:"14px 16px" }}>
+            <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>{icon} {label}</div>
+            <div style={{ fontSize:20, fontWeight:900, color }}>{value}</div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Barra de progresso geral */}
+      {debtHook.totalOriginal>0&&(
+        <Card>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, fontSize:13 }}>
+            <span style={{ fontWeight:700 }}>📊 Progresso de Quitação Geral</span>
+            <span style={{ color:C.success, fontWeight:800 }}>
+              {((1-debtHook.totalBalance/debtHook.totalOriginal)*100).toFixed(1)}%
+            </span>
+          </div>
+          <ProgressBar value={debtHook.totalOriginal-debtHook.totalBalance} max={debtHook.totalOriginal} color={C.success} height={12}/>
+          <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:C.muted, marginTop:6 }}>
+            <span>Quitado: {fmt(debtHook.totalOriginal-debtHook.totalBalance)}</span>
+            <span>Restante: {fmt(debtHook.totalBalance)}</span>
+          </div>
+        </Card>
+      )}
+
+      {/* Botão adicionar */}
+      <Btn onClick={()=>setAdding(a=>!a)} style={{ width:"100%" }}>
+        {adding?"✕ Cancelar":"➕ Cadastrar Nova Dívida"}
+      </Btn>
+
+      {/* Formulário de nova dívida */}
+      {adding&&(
+        <Card style={{ border:`2px solid ${C.primary}` }}>
+          <STitle>📉 Nova Dívida</STitle>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+            <Field label="Nome" span={2}><Input placeholder="Ex: Financiamento Carro, Empréstimo Caixa…" value={form.name} onChange={e=>f("name")(e.target.value)}/></Field>
+            <Field label="Tipo">
+              <Select value={form.debt_type} onChange={e=>f("debt_type")(e.target.value)}>
+                {Object.entries(DEBT_TYPES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+              </Select>
+            </Field>
+            <Field label="Credor"><Input placeholder="Ex: Banco do Brasil…" value={form.creditor} onChange={e=>f("creditor")(e.target.value)}/></Field>
+            <Field label="Responsável">
+              <Select value={form.member_name} onChange={e=>f("member_name")(e.target.value)}>
+                <option value={memberA}>{memberA}</option>
+                <option value={memberB}>{memberB}</option>
+                <option value="both">Ambos</option>
+              </Select>
+            </Field>
+            <Field label="Divisão">
+              <Select value={form.split_type} onChange={e=>f("split_type")(e.target.value)}>
+                <option value="half">50/50</option>
+                <option value="specific">Só o responsável</option>
+              </Select>
+            </Field>
+            <Field label="Valor original (R$)"><CurrencyInput value={form.original_amount} onChange={f("original_amount")}/></Field>
+            <Field label="Saldo devedor atual (R$)"><CurrencyInput value={form.current_balance} onChange={f("current_balance")}/></Field>
+            <Field label="Taxa de juros (%)">
+              <Input type="number" placeholder="Ex: 3,5" step="0.01" value={form.interest_rate} onChange={e=>f("interest_rate")(e.target.value)}/>
+            </Field>
+            <Field label="Tipo de taxa">
+              <Select value={form.rate_type} onChange={e=>f("rate_type")(e.target.value)}>
+                <option value="monthly">Mensal (% a.m.)</option>
+                <option value="annual">Anual (% a.a.)</option>
+              </Select>
+            </Field>
+            <Field label="Sistema de amortização" span={2}>
+              <Select value={form.amortization_type} onChange={e=>f("amortization_type")(e.target.value)}>
+                {Object.entries(AMORT_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+              </Select>
+            </Field>
+            {form.amortization_type!=="revolving"&&<>
+              <Field label="Total de parcelas"><Input type="number" placeholder="Ex: 48" value={form.total_installments} onChange={e=>f("total_installments")(e.target.value)}/></Field>
+              <Field label="Parcelas já pagas"><Input type="number" placeholder="Ex: 12" value={form.paid_installments} onChange={e=>f("paid_installments")(e.target.value)}/></Field>
+            </>}
+            <Field label="Data de início">
+              <Input type="date" value={form.start_date} onChange={e=>f("start_date")(e.target.value)}/>
+            </Field>
+            <Field label="Observações" span={2}><Input placeholder="Opcional…" value={form.notes} onChange={e=>f("notes")(e.target.value)}/></Field>
+          </div>
+          <Btn onClick={addDebt} style={{ width:"100%" }}>💾 Cadastrar Dívida</Btn>
+        </Card>
+      )}
+
+      {/* Lista de dívidas ativas */}
+      {activeDebts.length>0&&(
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          {activeDebts.map(d=>{
+            const dt      = DEBT_TYPES[d.debt_type]||{icon:"💸",label:"Dívida"};
+            const progress = Math.min((1-Number(d.current_balance)/Number(d.original_amount))*100,100);
+            const next    = debtHook.nextPayment(d);
+            const table   = expand===d.id ? generateAmortizationTable(d) : [];
+            const showFull = showAll[d.id];
+            const displayTable = showFull ? table : table.slice(0,6);
+            const remaining = (d.total_installments||0)-(d.paid_installments||0);
+            const isPayingThis = paying===d.id;
+
+            return (
+              <Card key={d.id} style={{ borderLeft:`5px solid ${C.danger}` }}>
+                {/* Header */}
+                <div style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:12 }}>
+                  <span style={{ fontSize:24 }}>{dt.icon}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:900, fontSize:15 }}>{d.name}</div>
+                    <div style={{ fontSize:11, color:C.muted }}>
+                      {d.creditor&&<>{d.creditor} · </>}{dt.label} · {d.member_name==="both"?"Ambos":d.member_name}
+                    </div>
+                  </div>
+                  <Badge color={C.danger}>{AMORT_TYPES[d.amortization_type]?.split(" ")[0]}</Badge>
+                </div>
+
+                {/* Progresso */}
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, marginBottom:5 }}>
+                    <span style={{ color:C.muted }}>Quitação</span>
+                    <span style={{ fontWeight:800, color:C.success }}>{progress.toFixed(1)}%</span>
+                  </div>
+                  <ProgressBar value={Number(d.original_amount)-Number(d.current_balance)} max={Number(d.original_amount)} color={C.success} height={10}/>
+                </div>
+
+                {/* Valores */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:14 }}>
+                  {[
+                    ["Saldo Devedor", fmt(d.current_balance), C.danger],
+                    ["Valor Original", fmt(d.original_amount), C.muted],
+                    ["Parcela Mensal", fmt(d.monthly_payment), C.text],
+                  ].map(([l,v,c])=>(
+                    <div key={l} style={{ background:"#f8fafc", borderRadius:10, padding:"8px 10px" }}>
+                      <div style={{ fontSize:9, color:C.muted, fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>{l}</div>
+                      <div style={{ fontSize:13, fontWeight:800, color:c }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {d.amortization_type!=="revolving"&&(
+                  <div style={{ fontSize:11, color:C.muted, marginBottom:12 }}>
+                    📅 {d.paid_installments}/{d.total_installments} parcelas pagas · {remaining} restantes
+                  </div>
+                )}
+
+                {/* Ações */}
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <Btn onClick={()=>{ setPaying(isPayingThis?null:d.id); setPayAmt(""); }} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
+                    {isPayingThis?"✕ Cancelar":"💳 Pagar parcela"}
+                  </Btn>
+                  <Btn variant="ghost" onClick={()=>setExpand(expand===d.id?null:d.id)} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
+                    {expand===d.id?"▲ Fechar":"📊 Ver projeção"}
+                  </Btn>
+                  <button onClick={()=>debtHook.debts.remove(d.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:10, width:38, height:38, cursor:"pointer" }}>🗑️</button>
+                </div>
+
+                {/* Formulário de pagamento inline */}
+                {isPayingThis&&(
+                  <div style={{ marginTop:14, background:"#f0fdf4", borderRadius:12, padding:"14px 16px" }}>
+                    <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>💳 Pagamento deste mês</div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
+                      {[["Juros",fmt(next.interest)],["Amortização",fmt(next.principal)],["Total",fmt(next.total)]].map(([l,v])=>(
+                        <div key={l} style={{ background:"#fff", borderRadius:10, padding:"8px 10px", border:`1.5px solid ${C.border}` }}>
+                          <div style={{ fontSize:9, color:C.muted, fontWeight:700, textTransform:"uppercase" }}>{l}</div>
+                          <div style={{ fontSize:13, fontWeight:800 }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <Field label="Valor personalizado (deixe vazio para usar o calculado)">
+                      <CurrencyInput value={payAmt} onChange={setPayAmt} placeholder="Valor calculado automaticamente"/>
+                    </Field>
+                    <div style={{ marginTop:10 }}>
+                      <Btn onClick={()=>confirmPayment(d.id)} style={{ width:"100%" }}>✅ Confirmar Pagamento</Btn>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabela de amortização */}
+                {expand===d.id&&table.length>0&&(
+                  <div style={{ marginTop:14 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.sub, textTransform:"uppercase", marginBottom:8 }}>📊 Projeção de Amortização</div>
+                    <div style={{ overflowX:"auto" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background:C.header, color:"#fff" }}>
+                            {["Parcela","Pagamento","Juros","Amortização","Saldo"].map(h=>(
+                              <th key={h} style={{ padding:"8px 10px", textAlign:"right", fontWeight:700, fontSize:11, whiteSpace:"nowrap" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayTable.map((r,i)=>(
+                            <tr key={i} style={{ background:i%2===0?"#f8fafc":"#fff", borderBottom:`1px solid ${C.border}` }}>
+                              <td style={{ padding:"7px 10px", textAlign:"right", color:C.muted, fontWeight:600 }}>{r.n}</td>
+                              <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700 }}>{fmt(r.payment)}</td>
+                              <td style={{ padding:"7px 10px", textAlign:"right", color:C.danger }}>{fmt(r.interest)}</td>
+                              <td style={{ padding:"7px 10px", textAlign:"right", color:C.success }}>{fmt(r.principal)}</td>
+                              <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700 }}>{fmt(r.balance)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {table.length>6&&(
+                      <button onClick={()=>setShowAll(p=>({...p,[d.id]:!p[d.id]}))} style={{ background:"none", border:"none", color:C.primary, fontSize:12, cursor:"pointer", marginTop:8, fontWeight:700 }}>
+                        {showFull?`▲ Mostrar menos`:`▼ Ver todas as ${table.length} parcelas`}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {activeDebts.length===0&&<Card><Empty msg="Nenhuma dívida ativa. Cadastre acima 👆"/></Card>}
+
+      {/* Dívidas quitadas */}
+      {inactiveDebts.length>0&&(
+        <Card>
+          <STitle>✅ Dívidas Quitadas ({inactiveDebts.length})</STitle>
+          {inactiveDebts.map(d=>(
+            <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
+              <span>{DEBT_TYPES[d.debt_type]?.icon||"💸"}</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:13 }}>{d.name}</div>
+                <div style={{ fontSize:11, color:C.muted }}>{d.creditor}</div>
+              </div>
+              <Badge color={C.success}>Quitada</Badge>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }
