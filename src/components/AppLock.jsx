@@ -249,9 +249,8 @@ export default function AppLock({ children }) {
         {/* Logo */}
         <div style={{ width:56, height:56, borderRadius:"50%",
           background:"rgba(255,255,255,.15)", display:"flex", alignItems:"center",
-          justifyContent:"center", fontWeight:900, fontSize:16, color:"#fff",
-          letterSpacing:-1 }}>
-          V♥H
+          justifyContent:"center", fontSize:28, color:"#fff" }}>
+          💜
         </div>
 
         {/* Título */}

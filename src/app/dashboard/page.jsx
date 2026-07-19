@@ -311,7 +311,7 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
         {/* Cabeçalho do drawer */}
         <div style={{ background:C.header, padding:"20px 18px 16px", color:"#fff" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13 }}>V♥H</div>
+            <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13 }}>{(memberA?.[0]||"?").toUpperCase()}♥{(memberB?.[0]||"?").toUpperCase()}</div>
             <button onClick={onClose} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:8, width:34, height:34, color:"#fff", cursor:"pointer", fontSize:18, fontFamily:"inherit" }}>✕</button>
           </div>
           <div style={{ fontWeight:900, fontSize:17 }}>{household?.name || "Finanças da Casa"}</div>
@@ -520,164 +520,168 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
 
 
 // ─── RENDA ────────────────────────────────────────────────────────────────────
-function RendaTab({ memberA, memberB, income, mInc, month, year }) {
-  const [fvName, setFvName] = useState("");
-  const [fvAmt,  setFvAmt]  = useState("");
-  const [fvDate, setFvDate] = useState(new Date().toISOString().slice(0,10));
-  const [fhName, setFhName] = useState("");
-  const [fhAmt,  setFhAmt]  = useState("");
-  const [marking, setMarking] = useState(null);
-  const [markAmt,  setMarkAmt]  = useState("");
-  const [markDate, setMarkDate] = useState(new Date().toISOString().slice(0,10));
+// Seção de renda individual — genérica para qualquer membro
+function MemberIncomeSection({ member, income, month, year }) {
+  const TYPE_OPTS = [
+    { id:"clt",       icon:"💼", label:"CLT"       },
+    { id:"freelance", icon:"💸", label:"Freelance"  },
+    { id:"other",     icon:"📦", label:"Outro"      },
+  ];
+  const [type,     setType]    = useState("freelance");
+  const [fName,    setFName]   = useState("");
+  const [fAmt,     setFAmt]    = useState("");
+  const [fDate,    setFDate]   = useState(today());
+  const [marking,  setMarking] = useState(null);
+  const [markAmt,  setMarkAmt] = useState("");
+  const [markDate, setMarkDate]= useState(today());
 
-  const mV = mInc.filter(s=>s.member_name===memberA).sort((a,b)=>(b.received_date||"").localeCompare(a.received_date||""));
-  const mH = mInc.filter(s=>s.member_name===memberB);
-  const totalV     = mV.reduce((a,s)=>a+Number(s.received_amount||0),0);
-  const totalHRecv = mH.filter(s=>s.status==="received").reduce((a,s)=>a+Number(s.received_amount||0),0);
-  const totalHPend = mH.filter(s=>s.status==="pending" ).reduce((a,s)=>a+Number(s.expected_amount||0),0);
+  const mInc    = income.data.filter(s=>s.member_name===member&&s.month===month&&s.year===year);
+  const cltList = mInc.filter(s=>s.source_type==="clt");
+  const received= mInc.filter(s=>s.status==="received").reduce((a,s)=>a+Number(s.received_amount||0),0);
+  const pending = mInc.filter(s=>s.status==="pending" ).reduce((a,s)=>a+Number(s.expected_amount||0),0);
 
-  const addFreelance = async () => {
-    if (!fvName||!fvAmt) return;
-    await income.insert({ member_name:memberA, source_name:fvName, source_type:"freelance",
-      received_amount:Number(fvAmt), received_date:fvDate, status:"received", month, year });
-    setFvName(""); setFvAmt("");
+  const hasPrevCLT = () => {
+    const pm=month===0?11:month-1, py=month===0?year-1:year;
+    return income.data.some(s=>s.member_name===member&&s.month===pm&&s.year===py&&s.source_type==="clt");
   };
 
-  const addCLT = async () => {
-    if (!fhName||!fhAmt) return;
-    await income.insert({ member_name:memberB, source_name:fhName, source_type:"clt",
-      expected_amount:Number(fhAmt), status:"pending", month, year });
-    setFhName(""); setFhAmt("");
+  const add = async () => {
+    if (!fName||!fAmt) return;
+    if (type==="clt") {
+      await income.insert({ member_name:member, source_name:fName, source_type:"clt",
+        expected_amount:Number(fAmt), status:"pending", month, year });
+    } else {
+      await income.insert({ member_name:member, source_name:fName, source_type:type,
+        received_amount:Number(fAmt), received_date:fDate, status:"received", month, year });
+    }
+    setFName(""); setFAmt("");
   };
 
-  const copyPrevCLT = async () => {
-    const n = await income.copyPreviousCLT(memberB, month, year);
-    if (!n) alert("Nenhuma entrada CLT encontrada no mês anterior.");
+  const copyPrev = async () => {
+    const pm=month===0?11:month-1, py=month===0?year-1:year;
+    const prev=income.data.filter(s=>s.member_name===member&&s.month===pm&&s.year===py&&s.source_type==="clt");
+    for (const s of prev) await income.insert({ member_name:member, source_name:s.source_name,
+      source_type:"clt", expected_amount:s.expected_amount, status:"pending", month, year });
   };
 
   const markReceived = async (id) => {
     if (!markAmt) return;
-    await income.markReceived(id, Number(markAmt), markDate);
-    setMarking(null); setMarkAmt(""); setMarkDate(new Date().toISOString().slice(0,10));
+    await income.update(id, { status:"received", received_amount:Number(markAmt), received_date:markDate });
+    setMarking(null); setMarkAmt(""); setMarkDate(today());
   };
 
-  const hasPrevCLT = income.data.some(s=>{
-    const pm=month===0?11:month-1, py=month===0?year-1:year;
-    return s.member_name===memberB&&s.month===pm&&s.year===py&&s.source_type==="clt";
-  });
+  const SRC_ICON = { clt:"💼", freelance:"💸", other:"📦" };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-
-      {/* VITTOR — Autônomo */}
-      <Card style={{ borderLeft:`5px solid ${C.primary}` }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div>
-            <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>👤 {memberA} — Autônomo</h2>
-            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Lance cada pagamento conforme recebe</div>
-          </div>
-          <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase" }}>Recebido este mês</div>
-            <div style={{ fontSize:22, fontWeight:900, color:C.primary }}>{fmt(totalV)}</div>
-          </div>
+    <Card style={{ borderLeft:`5px solid ${C.primary}` }}>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <div>
+          <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>👤 {member}</h2>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
-          <Field label="Descrição / Cliente" span={2}>
-            <Input placeholder="Ex: Cliente ABC — Projeto X" value={fvName} onChange={e=>setFvName(e.target.value)}/>
-          </Field>
-          <Field label="Valor recebido (R$)">
-            <CurrencyInput value={fvAmt} onChange={setFvAmt}/>
-          </Field>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase" }}>Recebido</div>
+          <div style={{ fontSize:20, fontWeight:900, color:C.primary }}>{fmt(received)}</div>
+          {pending>0&&<div style={{ fontSize:11, color:C.warn, marginTop:2 }}>⏳ {fmt(pending)} pendente</div>}
+        </div>
+      </div>
+
+      {/* Seletor de tipo */}
+      <div style={{ display:"flex", background:"#f1f5f9", borderRadius:12, padding:4, marginBottom:14 }}>
+        {TYPE_OPTS.map(t=>(
+          <button key={t.id} onClick={()=>setType(t.id)} style={{
+            flex:1, padding:"8px 4px", border:"none", borderRadius:9, fontSize:12,
+            fontWeight:type===t.id?800:500, cursor:"pointer", fontFamily:"inherit",
+            background:type===t.id?C.card:"transparent",
+            color:type===t.id?C.primary:C.muted,
+            boxShadow:type===t.id?"0 1px 4px rgba(0,0,0,.08)":"none",
+            transition:"all .15s",
+          }}>{t.icon} {t.label}</button>
+        ))}
+      </div>
+
+      {/* Formulário */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+        <Field label={type==="clt"?"Nome do empregador":"Descrição"} span={2}>
+          <Input placeholder={type==="clt"?"Ex: Empresa ABC…":"Ex: Projeto X, Consultoria…"} value={fName} onChange={e=>setFName(e.target.value)}/>
+        </Field>
+        <Field label={type==="clt"?"Salário esperado (R$)":"Valor recebido (R$)"}>
+          <CurrencyInput value={fAmt} onChange={setFAmt}/>
+        </Field>
+        {type!=="clt"&&(
           <Field label="Data de recebimento">
-            <Input type="date" value={fvDate} onChange={e=>setFvDate(e.target.value)}/>
+            <Input type="date" value={fDate} onChange={e=>setFDate(e.target.value)}/>
           </Field>
-        </div>
-        <Btn onClick={addFreelance} style={{ width:"100%" }}>+ Registrar Pagamento Recebido</Btn>
-        {mV.length>0 && (
-          <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:C.sub, textTransform:"uppercase" }}>Pagamentos em {MONTHS_FULL[month]}</div>
-            {mV.map(s=>(
-              <div key={s.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 13px", border:`1.5px solid ${C.border}`, borderRadius:12 }}>
-                <span style={{ fontSize:18 }}>💸</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:700, fontSize:13 }}>{s.source_name}</div>
-                  <div style={{ fontSize:11, color:C.muted }}>{s.received_date}</div>
-                </div>
-                <div style={{ fontWeight:900, color:C.success, fontSize:15 }}>{fmt(s.received_amount)}</div>
-                <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer" }}>🗑️</button>
-              </div>
-            ))}
-          </div>
         )}
-        {mV.length===0 && <Empty msg="Nenhum pagamento registrado neste mês."/>}
-      </Card>
+      </div>
 
-      {/* HEMERSON — CLT */}
-      <Card style={{ borderLeft:`5px solid ${C.success}` }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-          <div>
-            <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>👤 {memberB} — CLT (3 empregos)</h2>
-            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Cadastre os empregos e confirme quando cada salário cair</div>
-          </div>
-          {hasPrevCLT && <Btn variant="ghost" onClick={copyPrevCLT} style={{ fontSize:12, padding:"7px 14px" }}>📋 Copiar mês anterior</Btn>}
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16, marginTop:8 }}>
-          <div style={{ background:C.sLight, borderRadius:12, padding:"10px 14px" }}>
-            <div style={{ fontSize:11, color:"#166534", fontWeight:700, textTransform:"uppercase" }}>✅ Recebido</div>
-            <div style={{ fontSize:20, fontWeight:900, color:"#16a34a" }}>{fmt(totalHRecv)}</div>
-          </div>
-          <div style={{ background:"#fffbeb", borderRadius:12, padding:"10px 14px" }}>
-            <div style={{ fontSize:11, color:"#92400e", fontWeight:700, textTransform:"uppercase" }}>⏳ A Receber</div>
-            <div style={{ fontSize:20, fontWeight:900, color:C.warn }}>{fmt(totalHPend)}</div>
-          </div>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
-          <Field label="Nome do emprego" span={2}>
-            <Input placeholder="Ex: Empresa Principal, Empresa Secundária…" value={fhName} onChange={e=>setFhName(e.target.value)}/>
-          </Field>
-          <Field label="Salário esperado (R$)">
-            <CurrencyInput value={fhAmt} onChange={setFhAmt}/>
-          </Field>
-          <div style={{ display:"flex", alignItems:"flex-end" }}>
-            <Btn onClick={addCLT} style={{ width:"100%" }}>+ Adicionar Emprego</Btn>
-          </div>
-        </div>
-        {mH.length>0 && (
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {mH.map(s=>{
-              const recv=s.status==="received";
-              return (
-                <div key={s.id} style={{ border:`1.5px solid ${recv?"#86efac":C.border}`, background:recv?"#f0fdf4":"#fff", borderRadius:13, padding:"12px 14px" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <span style={{ fontSize:22 }}>💼</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, fontSize:14 }}>{s.source_name}</div>
-                      <div style={{ fontSize:12, color:C.muted }}>
-                        Esperado: <strong>{fmt(s.expected_amount)}</strong>
-                        {recv && <> · Recebido: <strong style={{ color:"#16a34a" }}>{fmt(s.received_amount)}</strong> em {s.received_date}</>}
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                      {recv ? <Badge color={C.success}>✅ Recebido</Badge> : <Badge color={C.warn}>⏳ Pendente</Badge>}
-                      {!recv && <Btn onClick={()=>{ setMarking(s.id); setMarkAmt(String(s.expected_amount||"")); }} style={{ fontSize:12, padding:"6px 12px" }}>✓ Confirmar</Btn>}
-                      <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer" }}>🗑️</button>
+      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+        <Btn onClick={add} style={{ flex:1 }}>
+          {type==="clt"?"+ Adicionar Empregador":"+ Registrar Recebimento"}
+        </Btn>
+        {type==="clt"&&hasPrevCLT()&&cltList.length===0&&(
+          <Btn variant="ghost" onClick={copyPrev} style={{ fontSize:12, padding:"9px 12px" }}>📋 Copiar anterior</Btn>
+        )}
+      </div>
+
+      {/* Lista de entradas */}
+      {mInc.length>0&&(
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {[...mInc].sort((a,b)=>(b.received_date||"").localeCompare(a.received_date||"")).map(s=>{
+            const isCLT = s.source_type==="clt";
+            const recv  = s.status==="received";
+            const isM   = marking===s.id;
+            return (
+              <div key={s.id} style={{
+                border:`1.5px solid ${recv&&isCLT?"#86efac":C.border}`,
+                background:recv&&isCLT?"#f0fdf4":"#fff",
+                borderRadius:13, padding:"11px 13px"
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:18 }}>{SRC_ICON[s.source_type]||"💰"}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:13 }}>{s.source_name}</div>
+                    <div style={{ fontSize:11, color:C.muted }}>
+                      {isCLT
+                        ? recv ? `Recebido em ${s.received_date} · ${fmt(s.received_amount)}` : `Esperado: ${fmt(s.expected_amount)}`
+                        : `${s.received_date} · ${fmt(s.received_amount)}`
+                      }
                     </div>
                   </div>
-                  {marking===s.id && (
-                    <div style={{ marginTop:12, padding:"12px 14px", background:"#fffbeb", borderRadius:10, display:"grid", gridTemplateColumns:"1fr 1fr auto auto", gap:10, alignItems:"end" }}>
-                      <Field label="Valor recebido (R$)"><CurrencyInput value={markAmt} onChange={setMarkAmt}/></Field>
-                      <Field label="Data de recebimento"><Input type="date" value={markDate} onChange={e=>setMarkDate(e.target.value)}/></Field>
-                      <Btn variant="success" onClick={()=>markReceived(s.id)}>💾 Salvar</Btn>
-                      <Btn variant="ghost" onClick={()=>setMarking(null)}>Cancelar</Btn>
-                    </div>
-                  )}
+                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                    {isCLT&&(recv
+                      ? <Badge color={C.success}>✅ Recebido</Badge>
+                      : <Badge color={C.warn}>⏳ Pendente</Badge>
+                    )}
+                    {isCLT&&!recv&&(
+                      <Btn onClick={()=>{ setMarking(s.id); setMarkAmt(String(s.expected_amount||"")); }} style={{ fontSize:11, padding:"5px 10px" }}>✓ Confirmar</Btn>
+                    )}
+                    <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer" }}>🗑️</button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-        {mH.length===0 && <Empty msg="Nenhum emprego cadastrado este mês. Adicione acima ou copie do mês anterior."/>}
-      </Card>
+                {isM&&(
+                  <div style={{ marginTop:10, padding:"10px 12px", background:"#fffbeb", borderRadius:10, display:"grid", gridTemplateColumns:"1fr 1fr auto auto", gap:10, alignItems:"end" }}>
+                    <Field label="Valor recebido (R$)"><CurrencyInput value={markAmt} onChange={setMarkAmt}/></Field>
+                    <Field label="Data"><Input type="date" value={markDate} onChange={e=>setMarkDate(e.target.value)}/></Field>
+                    <Btn onClick={()=>markReceived(s.id)}>💾</Btn>
+                    <Btn variant="ghost" onClick={()=>setMarking(null)}>✕</Btn>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {mInc.length===0&&<Empty msg={`Nenhuma entrada de renda para ${member} neste mês.`}/>}
+    </Card>
+  );
+}
+
+function RendaTab({ memberA, memberB, income, month, year }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+      <MemberIncomeSection member={memberA} income={income} month={month} year={year}/>
+      <MemberIncomeSection member={memberB} income={income} month={month} year={year}/>
     </div>
   );
 }
