@@ -32,6 +32,15 @@ export default function SetupPage() {
       p_display_name: displayName.trim(),
     });
     if (err) { setError(err.message); setLoading(false); return; }
+
+    // Email de boas-vindas em background
+    const { data: { user } } = await supabase.auth.getUser();
+    fetch("/api/email/welcome", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: user?.email, name: displayName.trim(), householdName: householdName.trim() }),
+    }).catch(() => {});
+
     router.push("/dashboard");
     router.refresh();
   };

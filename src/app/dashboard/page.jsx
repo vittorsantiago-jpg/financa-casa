@@ -1629,7 +1629,20 @@ function DiviTab({ debtHook, memberA, memberB }) {
 
 // ─── CONFIGURAÇÕES DA CASA ────────────────────────────────────────────────────
 function ConfigTab({ household, members, supabase, householdId }) {
-  const [copied, setCopied] = useState(false);
+  const [copied,     setCopied]   = useState(false);
+  const [inviteEmail,setInvEmail] = useState("");
+  const [sending,    setSending]  = useState(false);
+  const [inviteSent, setInvSent]  = useState(false);
+  const [myName,     setMyName]   = useState("");
+
+  useEffect(()=>{
+    supabase.auth.getUser().then(({ data:{ user } })=>{
+      if (!user) return;
+      const me = members?.find(m=>m.user_id===user.id);
+      if (me) setMyName(me.display_name);
+    });
+  }, [members]);
+
   const copy = () => { navigator.clipboard.writeText(household?.invite_code||""); setCopied(true); setTimeout(()=>setCopied(false),2000); };
 
   const regenerate = async () => {
@@ -1637,6 +1650,26 @@ function ConfigTab({ household, members, supabase, householdId }) {
     const newCode = Math.random().toString(36).slice(2,10).toUpperCase();
     await supabase.from("households").update({ invite_code: newCode }).eq("id", householdId);
     window.location.reload();
+  };
+
+  const sendInviteEmail = async () => {
+    if (!inviteEmail || !household?.invite_code) return;
+    setSending(true);
+    try {
+      await fetch("/api/email/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email:         inviteEmail,
+          inviterName:   myName || "Seu parceiro",
+          inviteCode:    household.invite_code,
+          householdName: household.name,
+        }),
+      });
+      setInvSent(true); setInvEmail("");
+      setTimeout(()=>setInvSent(false), 4000);
+    } catch {}
+    setSending(false);
   };
 
   return (
@@ -1668,6 +1701,25 @@ function ConfigTab({ household, members, supabase, householdId }) {
             <div style={{ flex:1, background:C.pLight, borderRadius:12, padding:"14px 18px", fontFamily:"monospace", fontSize:24, fontWeight:900, color:C.primary, letterSpacing:".15em", textAlign:"center" }}>{household.invite_code}</div>
             <Btn onClick={copy} style={{ padding:"14px 18px" }}>{copied?"✅ Copiado!":"📋 Copiar"}</Btn>
           </div>
+
+          {/* Enviar convite por email */}
+          <div style={{ marginTop:16, padding:"14px 16px", background:"#f8fafc", borderRadius:14, border:`1.5px solid ${C.border}` }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:10 }}>📧 Enviar convite por email</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <input
+                type="email"
+                placeholder="email@parceiro.com"
+                value={inviteEmail}
+                onChange={e=>setInvEmail(e.target.value)}
+                style={{ flex:1, border:`1.5px solid ${C.border}`, borderRadius:10, padding:"10px 14px", fontSize:14, outline:"none", fontFamily:"inherit", color:C.text, background:"#fff" }}
+              />
+              <Btn onClick={sendInviteEmail} disabled={sending||!inviteEmail} style={{ padding:"10px 16px", fontSize:13 }}>
+                {sending?"Enviando…":"Enviar"}
+              </Btn>
+            </div>
+            {inviteSent&&<div style={{ marginTop:8, color:C.success, fontSize:13, fontWeight:600 }}>✅ Convite enviado com sucesso!</div>}
+          </div>
+
           <button onClick={regenerate} style={{ background:"none", border:"none", color:C.muted, fontSize:12, cursor:"pointer", marginTop:10, textDecoration:"underline" }}>Gerar novo código</button>
         </Card>
       )}

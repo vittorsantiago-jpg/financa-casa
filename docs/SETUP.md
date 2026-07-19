@@ -1,188 +1,175 @@
 # 🚀 Guia de Deploy — Finanças da Casa
 
-Tempo estimado: **20–30 minutos** (primeira vez). Em deploys futuros: menos de 5.
+Tempo estimado na primeira vez: **30–40 minutos**.
+Atualizações futuras: `git push` e a Vercel faz o resto automaticamente.
 
 ---
 
 ## Pré-requisitos
 
-- [x] Conta no **GitHub** (já tem)
-- [x] Conta no **Vercel** (já tem)
-- [x] Conta no **Supabase** (já tem)
-- [ ] **Node.js 18+** instalado localmente ([nodejs.org](https://nodejs.org))
+- Conta no **GitHub**
+- Conta no **Vercel** (conectada ao GitHub)
+- Conta no **Supabase**
+- **Node.js 18+** instalado localmente
+- Domínio configurado (opcional — ex: `financas.lapidio.com.br`)
 
 ---
 
-## PASSO 1 — Supabase: criar o banco de dados
+## PASSO 1 — Supabase: banco de dados
 
 ### 1.1 Criar o projeto
 
-1. Acesse [supabase.com](https://supabase.com) → **New Project**
-2. Preencha:
-   - **Name:** `financa-casa`
-   - **Database Password:** escolha uma senha forte (anote em lugar seguro)
-   - **Region:** South America (São Paulo) → melhor latência para o Brasil
-3. Aguarde o projeto inicializar (~2 min)
+1. [supabase.com](https://supabase.com) → **New Project**
+2. Nome: `financa-casa`, Region: **South America (São Paulo)**
+3. Aguarde ~2 minutos
 
-### 1.2 Executar o schema SQL
+### 1.2 Rodar as migrations (ordem importa)
 
-1. No painel do Supabase → **SQL Editor** → **New query**
-2. Abra o arquivo `supabase/migrations/001_initial_schema.sql`
-3. Copie TODO o conteúdo e cole no editor
-4. Clique em **Run** (▶️)
-5. Você deve ver: `Success. No rows returned`
+Supabase → **SQL Editor** → **New query** → cole e rode cada arquivo na ordem:
 
-> ⚠️ Se aparecer algum erro, verifique se colou o arquivo completo.
+| Ordem | Arquivo | O que faz |
+|-------|---------|-----------|
+| 1º | `supabase/migrations/001_initial_schema.sql` | Cria todas as tabelas + RLS |
+| 2º | `supabase/migrations/002_income_sources.sql` | Tabela de renda flexível |
+| 3º | `supabase/migrations/003_rpc_functions.sql` | Funções create/join household |
 
-### 1.3 Copiar as chaves de API
+### 1.3 Corrigir policies de RLS (necessário)
 
-1. Supabase → **Project Settings** → **API**
-2. Anote (vamos usar no Passo 3):
-   - **Project URL** → `https://xxxxx.supabase.co`
-   - **anon public** key → começa com `eyJ...`
+Ainda no SQL Editor, rode:
 
-### 1.4 Configurar autenticação de e-mail
+```sql
+DROP POLICY IF EXISTS "households_insert_authenticated" ON public.households;
+CREATE POLICY "households_insert_auth" ON public.households FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
 
-1. Supabase → **Authentication** → **Providers** → **Email**
-2. Mantenha **Email** habilitado
-3. Em **Email Settings**, configure o remetente (opcional)
-4. Se quiser, desative **Confirm email** para testes (reative depois!)
+DROP POLICY IF EXISTS "members_insert_authenticated" ON public.household_members;
+CREATE POLICY "members_insert_auth" ON public.household_members FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
+```
+
+### 1.4 Configurar autenticação
+
+1. **Authentication → Email** → desative "Confirm email" para testes (reative depois)
+2. **Authentication → URL Configuration → Redirect URLs** → adicione:
+   ```
+   https://SEU_DOMINIO/**
+   ```
+
+### 1.5 Copiar as chaves
+
+**Settings → API:**
+- **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+- **anon public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ---
 
-## PASSO 2 — GitHub: subir o código
+## PASSO 2 — GitHub
 
 ```bash
-# Clone/crie a pasta do projeto
-cd financa-casa
-
-# Inicie o repositório
 git init
 git add .
 git commit -m "feat: sistema financeiro inicial"
-
-# Crie o repositório no GitHub (pelo site ou GitHub CLI)
-# Depois conecte:
 git remote add origin https://github.com/SEU_USUARIO/financa-casa.git
-git branch -M main
 git push -u origin main
 ```
 
-> 🔒 **Importante:** o `.gitignore` já está configurado para NUNCA commitar
-> o `.env.local`. Verifique antes de fazer o push.
+⚠️ Confirme que `.env.local` **não aparece** no `git status` antes de fazer push.
 
 ---
 
-## PASSO 3 — Vercel: deploy automático
+## PASSO 3 — Vercel
 
-### 3.1 Importar o projeto
-
-1. Acesse [vercel.com](https://vercel.com) → **Add New Project**
-2. Clique em **Import** no repositório `financa-casa`
-3. Framework: **Next.js** (detectado automaticamente)
-
-### 3.2 Configurar variáveis de ambiente
-
-Na tela de import, clique em **Environment Variables** e adicione:
+1. [vercel.com](https://vercel.com) → **Add New Project** → importe o repositório
+2. Framework: **Next.js** (detectado automaticamente)
+3. Em **Environment Variables**, adicione:
 
 | Nome | Valor |
 |------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` (a chave anon) |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL do Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave anon pública |
 
-> ⚠️ Nunca adicione a `service_role` key nas variáveis da Vercel frontend.
-
-### 3.3 Deploy
-
-Clique em **Deploy**. O build leva ~2 minutos.
-
-Você receberá uma URL como: `https://financa-casa-abc123.vercel.app`
+4. Clique em **Deploy**
 
 ---
 
-## PASSO 4 — Configurar o domínio (opcional)
+## PASSO 4 — Domínio personalizado (opcional)
 
-Se quiser uma URL mais bonita:
+1. Vercel → projeto → **Settings → Domains** → adicione `financas.seudominio.com.br`
+2. No seu DNS, adicione:
 
-1. Vercel → seu projeto → **Settings** → **Domains**
-2. Adicione um domínio personalizado (ex: `financas.seudominio.com`)
-3. Ou use um subdomínio gratuito da Vercel renomeando o projeto
+| Tipo | Nome | Valor |
+|------|------|-------|
+| CNAME | `financas` | `cname.vercel-dns.com` |
+
+3. O HTTPS é gerado automaticamente pelo Vercel
 
 ---
 
-## PASSO 5 — Instalar como PWA no celular
+## PASSO 5 — PWA no celular
 
 ### Android (Chrome):
-1. Acesse a URL do app no Chrome
-2. Menu (⋮) → **Adicionar à tela inicial**
-3. Confirme → o ícone aparece na tela inicial
+Acesse a URL → Menu (⋮) → **Adicionar à tela inicial**
 
 ### iPhone (Safari):
-1. Acesse a URL no Safari
-2. Botão de compartilhar (□↑) → **Adicionar à Tela de Início**
-3. Confirme → o ícone aparece na tela inicial
+Acesse a URL → Compartilhar (□↑) → **Adicionar à Tela de Início**
+
+O ícone V♥H aparece na tela inicial e o app abre sem barra de navegação do browser.
 
 ---
 
 ## PASSO 6 — Primeiro uso
 
-### Vittor (cria a casa):
-1. Acesse a URL → **Criar conta** com e-mail e senha
-2. Verifique o e-mail de confirmação
-3. Faça login → tela de Setup → **Criar nova casa**
-4. Nome: "Casa Vittor & Hemerson"
-5. Você verá o **código de convite** na aba ⚙️ Casa
+**Usuário A (cria a casa):**
+1. Acessa a URL → cria conta com e-mail e senha
+2. Cria seu PIN de 6 dígitos (+ opcional: ativa biometria)
+3. Setup → "Criar nova casa" → preenche nome e seu nome
+4. Na aba ⚙️ (header) → copia o código de convite
 
-### Hemerson (entra na casa):
-1. Cria conta com e-mail e senha
-2. Faz login → tela de Setup → **Entrar com código**
-3. Digita o código que o Vittor compartilhou
-
----
-
-## Desenvolvimento local
-
-```bash
-# Instalar dependências
-npm install
-
-# Criar o .env.local
-cp .env.example .env.local
-# Editar .env.local com suas chaves do Supabase
-
-# Rodar em desenvolvimento (PWA desativado em dev)
-npm run dev
-
-# Acesse: http://localhost:3000
-```
+**Usuário B (entra na casa):**
+1. Acessa a URL → cria conta com e-mail e senha
+2. Cria seu PIN de 6 dígitos
+3. Setup → "Entrar com código" → digita o código
 
 ---
 
 ## Atualizações futuras
 
-Para deployar uma atualização:
-
 ```bash
-git add .
-git commit -m "feat: descrição da mudança"
+git add ARQUIVO_MODIFICADO
+git commit -m "descrição da mudança"
 git push
 ```
 
-A Vercel detecta o push e faz o deploy automaticamente. ✅
+A Vercel detecta o push e faz o deploy automaticamente em ~1 minuto.
 
 ---
 
 ## Troubleshooting
 
-**Erro 500 no deploy:**
-- Verifique se as variáveis de ambiente estão corretas na Vercel
+| Erro | Causa | Solução |
+|------|-------|---------|
+| `row violates row-level security` | Policy de RLS bloqueando | Rode o SQL do passo 1.3 |
+| `useIncomeSources is not exported` | `useFinances.js` desatualizado | Substitua pelo arquivo mais recente |
+| `Module not found: @/lib/...` | Falta o `jsconfig.json` | Adicione o `jsconfig.json` na raiz |
+| App não abre / tela branca | Cache do PWA | Hard refresh: segure o botão de reload |
+| Múltiplas casas criadas | Tentativas duplicadas no setup | Limpe via SQL Editor no Supabase |
 
-**"Invalid login credentials":**
-- Verifique se o e-mail foi confirmado no Supabase Auth
+---
 
-**Dados não sincronizando em tempo real:**
-- Supabase → **Database** → **Replication** → verifique se as tabelas estão habilitadas para realtime
+## Verificar se está tudo ok no Supabase
 
-**Para habilitar realtime (necessário para sync instantâneo):**
-1. Supabase → **Database** → **Replication**
-2. Habilite para as tabelas: `expenses`, `fixed_bills`, `card_transactions`, `savings_goals`
+```sql
+-- Tabelas criadas
+SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public' ORDER BY table_name;
+
+-- Funções RPC criadas
+SELECT routine_name FROM information_schema.routines
+WHERE routine_schema = 'public'
+AND routine_name IN ('create_household', 'join_household');
+
+-- Membros da casa
+SELECT h.name, hm.display_name, hm.role
+FROM public.households h
+JOIN public.household_members hm ON hm.household_id = h.id;
+```

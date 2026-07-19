@@ -1,7 +1,7 @@
 # 💜 Finanças da Casa
 
-Sistema de gestão financeira doméstica compartilhada.  
-Construído para ser seguro, multi-tenant e extensível.
+Sistema de gestão financeira doméstica compartilhada.
+Construído para Vittor & Hemerson — mas arquitetado para ser seguro, multi-tenant e extensível para outros casais.
 
 ---
 
@@ -9,22 +9,23 @@ Construído para ser seguro, multi-tenant e extensível.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    BROWSER / PWA                        │
+│              BROWSER / PWA (celular ou desktop)         │
 │   Next.js 14 (React) — Client Components               │
-│   Supabase JS SDK (anon key apenas)                    │
+│   AppLock: PIN 6 dígitos + Biometria (WebAuthn)        │
 └──────────────────────┬──────────────────────────────────┘
                        │ HTTPS
 ┌──────────────────────▼──────────────────────────────────┐
 │                  VERCEL (Edge)                          │
-│   Middleware: valida JWT + protege rotas               │
-│   Next.js Server Components (SSR quando necessário)    │
+│   Middleware: valida JWT + protege todas as rotas      │
+│   Deploy automático a cada push no GitHub              │
 └──────────────────────┬──────────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────────┐
 │                 SUPABASE                                │
-│   Auth: JWT via email/senha                            │
+│   Auth: e-mail/senha + redefinição de senha            │
 │   Database: PostgreSQL com RLS                         │
 │   Realtime: WebSocket para sync instantâneo            │
+│   RPC: funções SECURITY DEFINER para operações críticas│
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -36,34 +37,24 @@ Construído para ser seguro, multi-tenant e extensível.
 
 | Camada | Mecanismo | Onde |
 |--------|-----------|------|
+| Bloqueio local | PIN 6 dígitos + Biometria (WebAuthn) | AppLock no browser |
 | Autenticação | JWT via Supabase Auth | Middleware Next.js |
 | Autorização | Row Level Security (RLS) | PostgreSQL |
 | Isolamento | `household_id` em toda query | Banco + RLS |
 | Segredos | Variáveis de ambiente | Vercel (nunca no código) |
 | Transporte | HTTPS obrigatório | Vercel (automático) |
 | Tokens | Renovação automática | Middleware SSR |
+| Operações críticas | Funções RPC com SECURITY DEFINER | Supabase |
 
 ### Row Level Security
 
-Cada tabela tem políticas RLS que garantem:
-- Usuário **só vê dados do próprio household**
-- Mesmo que descubra o ID de outro household, **não consegue ler nada**
-- A anon key do Supabase **nunca bypassa o RLS**
-- Funções auxiliares usam `SECURITY DEFINER` para queries seguras
+Cada tabela tem políticas RLS. Nenhum usuário acessa dados de outra casa.
 
-```sql
--- Exemplo: nenhum usuário acessa dados de outra casa
-CREATE POLICY "expenses_select"
-  ON public.expenses FOR SELECT
-  USING (public.user_in_household(household_id));
-```
+### Funções RPC (SECURITY DEFINER)
 
-### O que NÃO fazemos (por segurança)
-
-- ❌ Service Role Key **nunca** vai para o frontend
-- ❌ Nenhuma query sem filtro `household_id`
-- ❌ Nenhuma rota acessível sem autenticação (middleware)
-- ❌ Nenhum dado sensível no código (apenas em `.env`)
+Operações que precisam contornar RLS de forma segura:
+- `create_household(p_name, p_display_name)` — cria casa e adiciona owner
+- `join_household(p_invite_code, p_display_name)` — entra em casa via código
 
 ---
 
@@ -71,33 +62,40 @@ CREATE POLICY "expenses_select"
 
 ```
 households (uma por casal/família)
-├── household_members (usuários vinculados à casa)
-├── salaries (salário por membro, por mês/ano)
+├── household_members (usuários vinculados — máx. 2)
+├── income_sources (renda: freelance ou CLT múltiplo)
 ├── fixed_bills (contas fixas recorrentes)
 ├── expenses (gastos variáveis mensais)
 ├── credit_cards (cartões de crédito)
-│   └── card_transactions (lançamentos por cartão)
+│   └── card_transactions (lançamentos por cartão/mês)
 └── savings_goals (metas de poupança)
 ```
 
-### Multi-tenant
+### Modelo de renda (income_sources)
 
-O sistema foi projetado para múltiplos casais/famílias:
-- Cada `household` é completamente isolado
-- O RLS garante isolamento no banco
-- Um usuário pode pertencer a apenas um household
+Suporta dois fluxos:
+
+**Autônomo (freelance):**
+- Lança cada pagamento recebido com data e valor real
+- `status = 'received'` imediatamente ao registrar
+
+**CLT com múltiplos empregos:**
+- Cadastra valor esperado por empregador (`status = 'pending'`)
+- Confirma quando o salário cai na conta (ajusta valor real + data)
+- Botão "Copiar mês anterior" para não redigitar os empregos todo mês
 
 ---
 
 ## Stack tecnológica
 
-| Tecnologia | Função | Por quê |
-|------------|--------|---------|
-| Next.js 14 | Frontend + SSR | Deploy trivial na Vercel, App Router |
-| Supabase | Auth + DB + Realtime | PostgreSQL gerenciado com RLS e WebSocket |
-| Vercel | Hospedagem | CI/CD automático, edge network, HTTPS |
-| next-pwa | PWA | Instalável no celular, funciona offline |
-| recharts | Gráficos | Leve, feito para React |
+| Tecnologia | Função |
+|------------|--------|
+| Next.js 14 | Frontend + SSR + rotas protegidas |
+| Supabase | Auth + DB + Realtime + RPC |
+| Vercel | Hospedagem + CI/CD automático |
+| next-pwa | PWA instalável no celular |
+| WebAuthn | Biometria local (digital/Face ID) |
+| recharts | Gráficos do dashboard |
 
 ---
 
@@ -106,31 +104,37 @@ O sistema foi projetado para múltiplos casais/famílias:
 ```
 financa-casa/
 ├── src/
-│   ├── middleware.js          # Proteção de rotas (auth + household check)
+│   ├── middleware.js                  # Proteção de todas as rotas
+│   ├── components/
+│   │   └── AppLock.jsx               # Tela de PIN + biometria
 │   ├── app/
-│   │   ├── layout.jsx         # Root layout com meta PWA
-│   │   ├── page.jsx           # Redirect inteligente
-│   │   ├── auth/page.jsx      # Login / cadastro
-│   │   ├── setup/page.jsx     # Criar ou entrar em uma casa
-│   │   └── dashboard/
-│   │       └── page.jsx       # App principal (todos os módulos)
+│   │   ├── layout.jsx                # Root layout (meta PWA, fonte)
+│   │   ├── page.jsx                  # Redirect para /auth ou /dashboard
+│   │   ├── auth/page.jsx             # Login, cadastro, esqueci a senha
+│   │   ├── setup/page.jsx            # Criar casa ou entrar com código
+│   │   └── dashboard/page.jsx        # App principal (todos os módulos)
 │   └── lib/
 │       ├── supabase/
-│       │   ├── client.js      # Supabase browser client
-│       │   └── server.js      # Supabase server client (SSR)
+│       │   ├── client.js             # Supabase browser client
+│       │   └── server.js             # Supabase server client (SSR)
 │       └── hooks/
-│           └── useFinances.js # Hooks de dados com realtime
+│           └── useFinances.js        # Hooks de dados com realtime
 ├── supabase/
 │   └── migrations/
-│       └── 001_initial_schema.sql  # Schema + RLS completo
+│       ├── 001_initial_schema.sql    # Schema + RLS completo
+│       ├── 002_income_sources.sql    # Tabela de renda flexível
+│       └── 003_rpc_functions.sql     # Funções create/join household
 ├── public/
-│   └── manifest.json          # PWA manifest
+│   ├── manifest.json                 # PWA manifest
+│   ├── icon-192.png                  # Ícone V♥H (192x192)
+│   └── icon-512.png                  # Ícone V♥H (512x512)
 ├── docs/
-│   ├── README.md              # Este arquivo
-│   └── SETUP.md               # Guia de deploy passo a passo
-├── .env.example               # Template de variáveis (commitar isso é ok)
-├── .gitignore                 # .env.local NUNCA vai pro Git
-├── next.config.mjs            # Config Next.js + PWA
+│   ├── README.md                     # Este arquivo
+│   └── SETUP.md                      # Guia de deploy passo a passo
+├── .env.example                      # Template de variáveis
+├── .gitignore                        # .env.local nunca vai pro Git
+├── jsconfig.json                     # Resolve imports @/
+├── next.config.mjs                   # Config Next.js + PWA
 └── package.json
 ```
 
@@ -140,32 +144,47 @@ financa-casa/
 
 | Módulo | Funcionalidade |
 |--------|----------------|
-| 🏠 Dashboard | Saúde financeira da casa + individual, gráficos |
-| 💵 Salários | Registro mensal por pessoa, histórico |
-| 📋 Contas Fixas | Recorrentes, pausáveis, divisão configurável |
-| 💸 Lançamentos | Gastos variáveis (débito, dinheiro, ticket) |
-| 💳 Cartões | Múltiplos cartões, faturas por mês |
-| 🎯 Metas | Poupança com progresso e cálculo de reserva de emergência |
-| ⚙️ Casa | Código de convite, membros |
+| 🔐 AppLock | PIN de 6 dígitos + digital/Face ID. Trava após 2 min em background |
+| 🏠 Dashboard | Saúde financeira da casa + individual, gráficos por categoria |
+| 💰 Renda | Autônomo: lança por pagamento. CLT: esperado → confirmar recebimento |
+| 📋 Fixas | Recorrentes pausáveis, divisão configurável (50/50 ou um paga tudo) |
+| 💸 Lançamentos | Gastos variáveis (débito, dinheiro, ticket refeição) |
+| 💳 Cartões | Múltiplos cartões, faturas por mês, utilização do limite |
+| 🎯 Metas | Poupança com progresso, prazo e cálculo de reserva de emergência |
+| ⚙️ Casa | Código de convite, membros, configurações |
 
 ---
 
-## Extensibilidade (para uso por outros casais)
+## Divisão de gastos
 
-O sistema já está pronto para múltiplos usuários:
+Cada despesa/conta pode ser:
+- **50/50** — cada um paga metade
+- **Específico** — um membro paga o valor inteiro
 
-1. **Novo casal se cadastra** → cria conta no `/auth`
-2. **Cria uma casa** → `/setup` → recebe código de convite
-3. **Parceiro entra** → usa o código no `/setup`
-4. **Dados completamente isolados** → RLS garante isso
-
-Para tornar o sistema público:
-- Configure um domínio personalizado na Vercel
-- Ative verificação de e-mail no Supabase Auth
-- Considere adicionar um plano de limites (rate limiting)
+O dashboard calcula automaticamente o comprometimento individual com base na renda recebida de cada um.
 
 ---
 
-## Licença
+## Indicador de saúde financeira
 
-Projeto pessoal — use, adapte e compartilhe à vontade.
+| % da renda comprometida | Status |
+|------------------------|--------|
+| < 50% | 🟢 Saudável |
+| 50% – 75% | 🟡 Atenção |
+| > 75% | 🔴 Crítico |
+
+---
+
+## Extensibilidade (para outros casais)
+
+O sistema já suporta múltiplos households:
+1. Novo casal se cadastra em `/auth`
+2. Cria uma casa em `/setup` → recebe código de convite
+3. Parceiro entra com o código
+4. Dados completamente isolados via RLS
+
+---
+
+## Domínio
+
+O sistema está disponível em: **https://financas.lapidio.com.br**
