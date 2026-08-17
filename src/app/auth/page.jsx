@@ -30,9 +30,25 @@ export default function AuthPage() {
   const [info,        setInfo]    = useState("");
 
   // Detecta link de redefinição de senha no hash da URL
+  // {{ .Token }} no template Supabase é um OTP token hash — usa verifyOtp, não setSession
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
+    if (!hash.includes("type=recovery")) return;
+
+    const params     = new URLSearchParams(hash.slice(1));
+    const token_hash = params.get("access_token"); // na URL que montamos, o token vem aqui
+
+    if (token_hash) {
+      supabase.auth.verifyOtp({ token_hash, type: "recovery" })
+        .then(({ error }) => {
+          if (error) {
+            setError("Link inválido ou expirado. Solicite um novo link abaixo.");
+            setMode("reset");
+          } else {
+            setMode("new_password");
+          }
+        });
+    } else {
       setMode("new_password");
     }
   }, []);
@@ -147,7 +163,7 @@ export default function AuthPage() {
       <div style={{ background:C.card, borderRadius:24, padding:"36px 32px", width:"100%", maxWidth:400, boxShadow:"0 8px 32px rgba(79,70,229,.13)" }}>
         {/* Logo */}
         <div style={{ textAlign:"center", marginBottom:28 }}>
-          <div style={{ width:56, height:56, borderRadius:"50%", background:C.header, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:"#fff", margin:"0 auto 12px", letterSpacing:-1 }}>V♥H</div>
+          <div style={{ width:56, height:56, borderRadius:"50%", background:C.header, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, color:"#fff", margin:"0 auto 12px" }}>💜</div>
           <h1 style={{ margin:0, fontSize:22, fontWeight:900, color:C.text }}>Finanças da Casa</h1>
           <p style={{ margin:"4px 0 0", color:C.muted, fontSize:14 }}>Gestão financeira para casais</p>
         </div>
