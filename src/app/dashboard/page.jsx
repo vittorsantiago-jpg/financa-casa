@@ -52,6 +52,27 @@ const C = {
   card:"#ffffff", border:"#e2e8f0", muted:"#94a3b8", sub:"#64748b", text:"#1e1b4b",
 };
 
+// ─── Nav Icons (Feather-style SVG) ────────────────────────────────────────────
+function NavSvg({ children }) {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      {children}
+    </svg>
+  );
+}
+const NAV_ICONS = {
+  dashboard:   <NavSvg><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></NavSvg>,
+  renda:       <NavSvg><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></NavSvg>,
+  contas:      <NavSvg><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 14 11 16 15 12"/></NavSvg>,
+  fixas:       <NavSvg><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="2"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></NavSvg>,
+  lancamentos: <NavSvg><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></NavSvg>,
+  cartoes:     <NavSvg><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></NavSvg>,
+  metas:       <NavSvg><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></NavSvg>,
+  dividas:     <NavSvg><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></NavSvg>,
+  config:      <NavSvg><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></NavSvg>,
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt   = (v=0)  => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const uid   = ()     => Math.random().toString(36).slice(2,9);
@@ -216,15 +237,15 @@ export default function Dashboard() {
   );
 
   const TABS = [
-    { id:"dashboard",   icon:"🏠", label:"Início"         },
-    { id:"renda",       icon:"💰", label:"Renda"          },
-    { id:"contas",      icon:"📅", label:"Contas a Pagar" },
-    { id:"fixas",       icon:"📋", label:"Contas Fixas"   },
-    { id:"lancamentos", icon:"💸", label:"Gastos"         },
-    { id:"cartoes",     icon:"💳", label:"Cartões"        },
-    { id:"metas",       icon:"🎯", label:"Metas"          },
-    { id:"dividas",     icon:"📉", label:"Dívidas"        },
-    { id:"config",      icon:"⚙️", label:"Configurações" },
+    { id:"dashboard",   icon: NAV_ICONS.dashboard,   label:"Início"         },
+    { id:"renda",       icon: NAV_ICONS.renda,       label:"Renda"          },
+    { id:"contas",      icon: NAV_ICONS.contas,      label:"Contas a Pagar" },
+    { id:"fixas",       icon: NAV_ICONS.fixas,       label:"Contas Fixas"   },
+    { id:"lancamentos", icon: NAV_ICONS.lancamentos, label:"Gastos"         },
+    { id:"cartoes",     icon: NAV_ICONS.cartoes,     label:"Cartões"        },
+    { id:"metas",       icon: NAV_ICONS.metas,       label:"Metas"          },
+    { id:"dividas",     icon: NAV_ICONS.dividas,     label:"Dívidas"        },
+    { id:"config",      icon: NAV_ICONS.config,      label:"Configurações"  },
   ];
 
   const shared = {
@@ -312,7 +333,11 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
         {/* Cabeçalho do drawer */}
         <div style={{ background:C.header, padding:"20px 18px 16px", color:"#fff" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <div style={{ width:40, height:40, borderRadius:"50%", background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:13 }}>{(memberA?.[0]||"?").toUpperCase()}♥{(memberB?.[0]||"?").toUpperCase()}</div>
+            <div style={{ height:40, padding:"0 12px", borderRadius:20, background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:14, letterSpacing:1, gap:1 }}>
+              <span>{(memberA?.[0]||"?").toUpperCase()}</span>
+              <span style={{ color:"rgba(255,180,200,.9)", fontSize:12, margin:"0 1px" }}>♥</span>
+              <span>{(memberB?.[0]||"?").toUpperCase()}</span>
+            </div>
             <button onClick={onClose} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:8, width:34, height:34, color:"#fff", cursor:"pointer", fontSize:18, fontFamily:"inherit" }}>✕</button>
           </div>
           <div style={{ fontWeight:900, fontSize:17 }}>{household?.name || "Finanças da Casa"}</div>
@@ -332,7 +357,7 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
               cursor:"pointer", fontFamily:"inherit", textAlign:"left",
               WebkitTapHighlightColor:"transparent",
             }}>
-              <span style={{ fontSize:22, width:32, display:"inline-block" }}>{t.icon}</span>
+              <span style={{ width:24, height:24, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{t.icon}</span>
               {t.label}
             </button>
           ))}
