@@ -372,35 +372,38 @@ export function useDebts(householdId) {
 
   /**
    * Registra o pagamento de uma parcela.
-   * Calcula automaticamente juros e amortização e atualiza o saldo.
+   * Modo Simples (sem interest_rate): o pagamento inteiro vira amortização.
+   * Modo Avançado: calcula juros e amortização normalmente.
    */
   const makePayment = async (debtId, customAmount = null) => {
     const debt = debtsBase.data.find(d => d.id === debtId);
     if (!debt) return { error: "Dívida não encontrada" };
 
-    const rate       = toMonthlyRate(debt.interest_rate, debt.rate_type);
-    const interest   = Number(debt.current_balance) * rate;
+    const isAdvanced = debt.interest_rate != null && debt.amortization_type != null;
+    const rate       = isAdvanced ? toMonthlyRate(debt.interest_rate, debt.rate_type) : 0;
+    const interest   = isAdvanced ? Number(debt.current_balance) * rate : 0;
     const pmt        = customAmount ?? Number(debt.monthly_payment ?? 0);
     const principal  = Math.max(0, pmt - interest);
     const newBalance = Math.max(0, Number(debt.current_balance) - principal);
     const today      = new Date().toISOString().slice(0, 10);
 
     const { error: e1 } = await paymentsBase.insert({
-      debt_id:          debtId,
-      payment_date:     today,
-      month:            new Date().getMonth(),
-      year:             new Date().getFullYear(),
-      total_paid:       pmt,
-      interest_portion: interest,
+      debt_id:           debtId,
+      payment_date:      today,
+      month:             new Date().getMonth(),
+      year:              new Date().getFullYear(),
+      total_paid:        pmt,
+      interest_portion:  interest,
       principal_portion: principal,
-      balance_before:   debt.current_balance,
-      balance_after:    newBalance,
+      balance_before:    debt.current_balance,
+      balance_after:     newBalance,
     });
     if (e1) return { error: e1 };
 
-    const newPaid = debt.amortization_type !== "revolving"
-      ? (debt.paid_installments || 0) + 1
-      : debt.paid_installments;
+    // Rotativo não incrementa parcelas; simples e avançado incrementam
+    const newPaid = debt.amortization_type === "revolving"
+      ? debt.paid_installments
+      : (debt.paid_installments || 0) + 1;
 
     await debtsBase.update(debtId, {
       current_balance:   newBalance,
@@ -413,6 +416,12 @@ export function useDebts(householdId) {
 
   /** Calcula a próxima parcela esperada (sem modificar o banco) */
   const nextPayment = (debt) => {
+    // Modo Simples: sem taxa de juros — parcela fixa informada pelo usuário
+    if (!debt.interest_rate || !debt.amortization_type) {
+      const pmt = Number(debt.monthly_payment || 0);
+      return { total: pmt, interest: 0, principal: pmt };
+    }
+
     const rate      = toMonthlyRate(debt.interest_rate, debt.rate_type);
     const interest  = Number(debt.current_balance) * rate;
     const remaining = (debt.total_installments || 0) - (debt.paid_installments || 0);
@@ -426,7 +435,7 @@ export function useDebts(householdId) {
       return { total: principal + interest, interest, principal };
     }
     // revolving
-    return { total: Number(debt.monthly_payment || interest), interest, principal: Math.max(0, Number(debt.monthly_payment||0) - interest) };
+    return { total: Number(debt.monthly_payment || interest), interest, principal: Math.max(0, Number(debt.monthly_payment || 0) - interest) };
   };
 
   /** Calcula e armazena o monthly_payment na hora de criar a dívida */

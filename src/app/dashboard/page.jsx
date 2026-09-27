@@ -1470,37 +1470,68 @@ function DiviTab({ debtHook, memberA, memberB }) {
   const blank = {
     name:"", debt_type:"loan", creditor:"", member_name:memberA,
     split_type:"half", original_amount:"", current_balance:"",
+    monthly_payment:"", total_installments:"", paid_installments:"0",
+    start_date:today(), notes:"",
+    // avançado
     interest_rate:"", rate_type:"monthly", amortization_type:"price",
-    total_installments:"", paid_installments:"0", start_date:today(), notes:"",
   };
   const [form,    setForm]    = useState(blank);
+  const [advMode, setAdvMode] = useState(false);  // toggle Simples / Avançado
   const [adding,  setAdding]  = useState(false);
-  const [expand,  setExpand]  = useState(null);   // id da dívida com tabela expandida
-  const [paying,  setPaying]  = useState(null);   // id que está pagando
+  const [expand,  setExpand]  = useState(null);
+  const [paying,  setPaying]  = useState(null);
   const [payAmt,  setPayAmt]  = useState("");
   const [showAll, setShowAll] = useState({});
 
   const f = k => v => setForm(p=>({...p,[k]:v}));
 
+  const canSubmit = advMode
+    ? form.name && form.original_amount && form.current_balance && form.interest_rate && form.total_installments
+    : form.name && form.original_amount && form.current_balance && form.monthly_payment;
+
   const addDebt = async () => {
-    if (!form.name||!form.original_amount||!form.current_balance||!form.interest_rate) return;
-    const pmt = debtHook.computeMonthlyPayment({
-      ...form,
-      interest_rate:      Number(form.interest_rate),
-      original_amount:    Number(form.original_amount),
-      current_balance:    Number(form.current_balance),
-      total_installments: Number(form.total_installments)||0,
-      paid_installments:  Number(form.paid_installments)||0,
-    });
+    if (!canSubmit) return;
+
+    let pmt, interest_rate, rate_type, amortization_type, total_installments;
+
+    if (advMode) {
+      pmt = debtHook.computeMonthlyPayment({
+        ...form,
+        interest_rate:      Number(form.interest_rate),
+        original_amount:    Number(form.original_amount),
+        current_balance:    Number(form.current_balance),
+        total_installments: Number(form.total_installments) || 0,
+        paid_installments:  Number(form.paid_installments) || 0,
+      });
+      interest_rate      = Number(form.interest_rate);
+      rate_type          = form.rate_type;
+      amortization_type  = form.amortization_type;
+      total_installments = form.amortization_type === "revolving" ? null : Number(form.total_installments);
+    } else {
+      pmt               = Number(form.monthly_payment);
+      interest_rate     = null;
+      rate_type         = null;
+      amortization_type = null;
+      total_installments = Number(form.total_installments) || null;
+    }
+
     await debtHook.debts.insert({
-      ...form,
-      original_amount:    Number(form.original_amount),
-      current_balance:    Number(form.current_balance),
-      interest_rate:      Number(form.interest_rate),
-      total_installments: form.amortization_type==="revolving"?null:Number(form.total_installments),
-      paid_installments:  Number(form.paid_installments)||0,
-      monthly_payment:    pmt,
-      active:             true,
+      name:              form.name,
+      debt_type:         form.debt_type,
+      creditor:          form.creditor,
+      member_name:       form.member_name,
+      split_type:        form.split_type,
+      original_amount:   Number(form.original_amount),
+      current_balance:   Number(form.current_balance),
+      monthly_payment:   pmt,
+      total_installments,
+      paid_installments: Number(form.paid_installments) || 0,
+      start_date:        form.start_date,
+      notes:             form.notes,
+      interest_rate,
+      rate_type,
+      amortization_type,
+      active:            true,
     });
     setForm(blank); setAdding(false);
   };
@@ -1557,8 +1588,31 @@ function DiviTab({ debtHook, memberA, memberB }) {
       {/* Formulário de nova dívida */}
       {adding&&(
         <Card style={{ border:`2px solid ${C.primary}` }}>
-          <STitle>📉 Nova Dívida</STitle>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+            <STitle style={{ margin:0 }}>📉 Nova Dívida</STitle>
+            {/* Toggle Simples / Avançado */}
+            <div style={{ display:"flex", background:"#f1f5f9", borderRadius:10, padding:3 }}>
+              {[["Simples",false],["Avançado",true]].map(([label,val])=>(
+                <button key={label} onClick={()=>setAdvMode(val)} style={{
+                  padding:"6px 14px", border:"none", borderRadius:8, fontSize:12, fontWeight:advMode===val?800:500,
+                  cursor:"pointer", fontFamily:"inherit",
+                  background:advMode===val?C.primary:"transparent",
+                  color:advMode===val?"#fff":C.muted,
+                  transition:"all .15s",
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Dica contextual */}
+          <div style={{ fontSize:12, color:C.muted, background:"#f8fafc", borderRadius:10, padding:"10px 14px", marginBottom:14, lineHeight:1.6 }}>
+            {advMode
+              ? "💡 Modo Avançado: informe a taxa de juros e o sistema de amortização para calcular a projeção completa."
+              : "💡 Modo Simples: informe apenas o valor da parcela mensal. Sem necessidade de saber juros ou tabela Price/SAC."}
+          </div>
+
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+            {/* Campos comuns */}
             <Field label="Nome" span={2}><Input placeholder="Ex: Financiamento Carro, Empréstimo Caixa…" value={form.name} onChange={e=>f("name")(e.target.value)}/></Field>
             <Field label="Tipo">
               <Select value={form.debt_type} onChange={e=>f("debt_type")(e.target.value)}>
@@ -1581,30 +1635,44 @@ function DiviTab({ debtHook, memberA, memberB }) {
             </Field>
             <Field label="Valor original (R$)"><CurrencyInput value={form.original_amount} onChange={f("original_amount")}/></Field>
             <Field label="Saldo devedor atual (R$)"><CurrencyInput value={form.current_balance} onChange={f("current_balance")}/></Field>
-            <Field label="Taxa de juros (%)">
-              <Input type="number" placeholder="Ex: 3,5" step="0.01" value={form.interest_rate} onChange={e=>f("interest_rate")(e.target.value)}/>
-            </Field>
-            <Field label="Tipo de taxa">
-              <Select value={form.rate_type} onChange={e=>f("rate_type")(e.target.value)}>
-                <option value="monthly">Mensal (% a.m.)</option>
-                <option value="annual">Anual (% a.a.)</option>
-              </Select>
-            </Field>
-            <Field label="Sistema de amortização" span={2}>
-              <Select value={form.amortization_type} onChange={e=>f("amortization_type")(e.target.value)}>
-                {Object.entries(AMORT_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-              </Select>
-            </Field>
-            {form.amortization_type!=="revolving"&&<>
+
+            {/* Modo Simples: parcela mensal digitada diretamente */}
+            {!advMode&&(
+              <Field label="Parcela mensal (R$)" span={2}>
+                <CurrencyInput value={form.monthly_payment} onChange={f("monthly_payment")} placeholder="Quanto você paga por mês?"/>
+              </Field>
+            )}
+
+            {/* Campos de parcelas — comuns */}
+            {(!advMode||form.amortization_type!=="revolving")&&<>
               <Field label="Total de parcelas"><Input type="number" placeholder="Ex: 48" value={form.total_installments} onChange={e=>f("total_installments")(e.target.value)}/></Field>
               <Field label="Parcelas já pagas"><Input type="number" placeholder="Ex: 12" value={form.paid_installments} onChange={e=>f("paid_installments")(e.target.value)}/></Field>
             </>}
+
+            {/* Modo Avançado: juros + amortização */}
+            {advMode&&<>
+              <Field label="Taxa de juros (%)">
+                <Input type="number" placeholder="Ex: 3,5" step="0.01" value={form.interest_rate} onChange={e=>f("interest_rate")(e.target.value)}/>
+              </Field>
+              <Field label="Tipo de taxa">
+                <Select value={form.rate_type} onChange={e=>f("rate_type")(e.target.value)}>
+                  <option value="monthly">Mensal (% a.m.)</option>
+                  <option value="annual">Anual (% a.a.)</option>
+                </Select>
+              </Field>
+              <Field label="Sistema de amortização" span={2}>
+                <Select value={form.amortization_type} onChange={e=>f("amortization_type")(e.target.value)}>
+                  {Object.entries(AMORT_TYPES).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                </Select>
+              </Field>
+            </>}
+
             <Field label="Data de início">
               <Input type="date" value={form.start_date} onChange={e=>f("start_date")(e.target.value)}/>
             </Field>
             <Field label="Observações" span={2}><Input placeholder="Opcional…" value={form.notes} onChange={e=>f("notes")(e.target.value)}/></Field>
           </div>
-          <Btn onClick={addDebt} style={{ width:"100%" }}>💾 Cadastrar Dívida</Btn>
+          <Btn onClick={addDebt} disabled={!canSubmit} style={{ width:"100%", opacity:canSubmit?1:0.5 }}>💾 Cadastrar Dívida</Btn>
         </Card>
       )}
 
@@ -1632,7 +1700,9 @@ function DiviTab({ debtHook, memberA, memberB }) {
                       {d.creditor&&<>{d.creditor} · </>}{dt.label} · {d.member_name==="both"?"Ambos":d.member_name}
                     </div>
                   </div>
-                  <Badge color={C.danger}>{AMORT_TYPES[d.amortization_type]?.split(" ")[0]}</Badge>
+                  <Badge color={d.amortization_type ? C.danger : C.muted}>
+                    {d.amortization_type ? AMORT_TYPES[d.amortization_type]?.split(" ")[0] : "Simples"}
+                  </Badge>
                 </div>
 
                 {/* Progresso */}
@@ -1669,9 +1739,11 @@ function DiviTab({ debtHook, memberA, memberB }) {
                   <Btn onClick={()=>{ setPaying(isPayingThis?null:d.id); setPayAmt(""); }} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
                     {isPayingThis?"✕ Cancelar":"💳 Pagar parcela"}
                   </Btn>
-                  <Btn variant="ghost" onClick={()=>setExpand(expand===d.id?null:d.id)} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
-                    {expand===d.id?"▲ Fechar":"📊 Ver projeção"}
-                  </Btn>
+                  {d.amortization_type&&d.interest_rate&&(
+                    <Btn variant="ghost" onClick={()=>setExpand(expand===d.id?null:d.id)} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
+                      {expand===d.id?"▲ Fechar":"📊 Ver projeção"}
+                    </Btn>
+                  )}
                   <button onClick={()=>debtHook.debts.remove(d.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:10, width:38, height:38, cursor:"pointer" }}>🗑️</button>
                 </div>
 
@@ -1679,15 +1751,22 @@ function DiviTab({ debtHook, memberA, memberB }) {
                 {isPayingThis&&(
                   <div style={{ marginTop:14, background:"#f0fdf4", borderRadius:12, padding:"14px 16px" }}>
                     <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>💳 Pagamento deste mês</div>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
-                      {[["Juros",fmt(next.interest)],["Amortização",fmt(next.principal)],["Total",fmt(next.total)]].map(([l,v])=>(
-                        <div key={l} style={{ background:"#fff", borderRadius:10, padding:"8px 10px", border:`1.5px solid ${C.border}` }}>
-                          <div style={{ fontSize:9, color:C.muted, fontWeight:700, textTransform:"uppercase" }}>{l}</div>
-                          <div style={{ fontSize:13, fontWeight:800 }}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <Field label="Valor personalizado (deixe vazio para usar o calculado)">
+                    {d.amortization_type&&d.interest_rate ? (
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
+                        {[["Juros",fmt(next.interest)],["Amortização",fmt(next.principal)],["Total",fmt(next.total)]].map(([l,v])=>(
+                          <div key={l} style={{ background:"#fff", borderRadius:10, padding:"8px 10px", border:`1.5px solid ${C.border}` }}>
+                            <div style={{ fontSize:9, color:C.muted, fontWeight:700, textTransform:"uppercase" }}>{l}</div>
+                            <div style={{ fontSize:13, fontWeight:800 }}>{v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ background:"#fff", borderRadius:10, padding:"10px 14px", border:`1.5px solid ${C.border}`, marginBottom:12, display:"inline-block" }}>
+                        <div style={{ fontSize:9, color:C.muted, fontWeight:700, textTransform:"uppercase" }}>Parcela mensal</div>
+                        <div style={{ fontSize:16, fontWeight:900, color:C.primary }}>{fmt(next.total)}</div>
+                      </div>
+                    )}
+                    <Field label="Valor personalizado (deixe vazio para usar o padrão)">
                       <CurrencyInput value={payAmt} onChange={setPayAmt} placeholder="Valor calculado automaticamente"/>
                     </Field>
                     <div style={{ marginTop:10 }}>
@@ -1759,19 +1838,42 @@ function DiviTab({ debtHook, memberA, memberB }) {
 
 // ─── CONFIGURAÇÕES DA CASA ────────────────────────────────────────────────────
 function ConfigTab({ household, members, supabase, householdId }) {
-  const [copied,     setCopied]   = useState(false);
-  const [inviteEmail,setInvEmail] = useState("");
-  const [sending,    setSending]  = useState(false);
-  const [inviteSent, setInvSent]  = useState(false);
-  const [myName,     setMyName]   = useState("");
+  const [copied,      setCopied]   = useState(false);
+  const [inviteEmail, setInvEmail] = useState("");
+  const [sending,     setSending]  = useState(false);
+  const [inviteSent,  setInvSent]  = useState(false);
+  const [myName,      setMyName]   = useState("");
+  const [userId,      setUserId]   = useState(null);
+  const [editingName, setEditingName] = useState(false);
+  const [newName,     setNewName]  = useState("");
+  const [savingName,  setSavingName] = useState(false);
+  const [nameSaved,   setNameSaved]  = useState(false);
 
   useEffect(()=>{
     supabase.auth.getUser().then(({ data:{ user } })=>{
       if (!user) return;
+      setUserId(user.id);
       const me = members?.find(m=>m.user_id===user.id);
       if (me) setMyName(me.display_name);
     });
   }, [members]);
+
+  const saveMyName = async () => {
+    if (!newName.trim() || !userId) return;
+    setSavingName(true);
+    const { error } = await supabase
+      .from("household_members")
+      .update({ display_name: newName.trim() })
+      .eq("household_id", householdId)
+      .eq("user_id", userId);
+    if (!error) {
+      setMyName(newName.trim());
+      setEditingName(false);
+      setNameSaved(true);
+      setTimeout(() => window.location.reload(), 1500);
+    }
+    setSavingName(false);
+  };
 
   const copy = () => { navigator.clipboard.writeText(household?.invite_code||""); setCopied(true); setTimeout(()=>setCopied(false),2000); };
 
@@ -1804,6 +1906,46 @@ function ConfigTab({ household, members, supabase, householdId }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+
+      {/* ── Meu Perfil ── */}
+      <Card>
+        <STitle>👤 Meu Perfil</STitle>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+          <div>
+            <div style={{ fontSize:12, color:C.sub, marginBottom:2 }}>Seu nome no app</div>
+            {!editingName ? (
+              <div style={{ fontWeight:800, fontSize:18, color:C.text }}>{myName || "—"}</div>
+            ) : (
+              <input
+                autoFocus
+                value={newName}
+                onChange={e=>setNewName(e.target.value)}
+                onKeyDown={e=>{ if(e.key==="Enter") saveMyName(); if(e.key==="Escape") setEditingName(false); }}
+                placeholder="Seu nome..."
+                style={{ border:`1.5px solid ${C.primary}`, borderRadius:10, padding:"8px 12px", fontSize:16, fontWeight:700, outline:"none", fontFamily:"inherit", color:C.text, width:180 }}
+              />
+            )}
+          </div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            {!editingName ? (
+              <button onClick={()=>{ setNewName(myName); setEditingName(true); }} style={{ background:C.pLight, border:"none", borderRadius:10, padding:"8px 14px", fontSize:13, fontWeight:700, color:C.primary, cursor:"pointer", fontFamily:"inherit" }}>
+                ✏️ Editar
+              </button>
+            ) : (
+              <>
+                <button onClick={()=>setEditingName(false)} style={{ background:"#f1f5f9", border:"none", borderRadius:10, padding:"8px 12px", fontSize:13, fontWeight:600, color:C.muted, cursor:"pointer", fontFamily:"inherit" }}>
+                  Cancelar
+                </button>
+                <button onClick={saveMyName} disabled={savingName||!newName.trim()} style={{ background:C.primary, border:"none", borderRadius:10, padding:"8px 14px", fontSize:13, fontWeight:700, color:"#fff", cursor:"pointer", fontFamily:"inherit", opacity:savingName||!newName.trim()?0.6:1 }}>
+                  {savingName?"Salvando…":"Salvar"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        {nameSaved && <div style={{ marginTop:10, color:C.success, fontSize:13, fontWeight:600 }}>✅ Nome atualizado com sucesso!</div>}
+      </Card>
+
       <Card>
         <STitle>🏠 Sua Casa</STitle>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
