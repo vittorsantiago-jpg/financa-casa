@@ -1314,23 +1314,38 @@ function MetasTab({ goals, active, mExp, month, year }) {
 }
 
 // ─── BILL ITEM (helper para ContasTab) ───────────────────────────────────────
-function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, billPay }) {
+function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, billPay, dayNow }) {
   const STATUS_CFG = {
-    pending:  { label:"Pendente",         color:"#d97706", bg:"#fffbeb" },
-    paid:     { label:"Pago",             color:"#16a34a", bg:"#f0fdf4" },
-    paid_late:{ label:"Pago com atraso", color:"#d97706", bg:"#fff7ed" },
+    pending:  { label:"Pendente",        color:"#d97706", bg:"#fffbeb" },
+    paid:     { label:"Pago",            color:"#16a34a", bg:"#f0fdf4" },
+    paid_late:{ label:"Pago c/ atraso",  color:"#d97706", bg:"#fff7ed" },
   };
   const SRC_ICON = { fixed_bill:"Fixa", credit_card:"Cartão", manual:"Avulsa" };
   const st  = STATUS_CFG[b.status] || STATUS_CFG.pending;
   const isM = marking?.id === b.id;
+
+  // Rótulo de vencimento contextual
+  const dueLabel = (() => {
+    if (!b.due_day) return "Sem vencimento";
+    if (b.status !== "pending") return `Venceu dia ${b.due_day}`;
+    const diff = b.due_day - dayNow;
+    if (diff < 0)  return `Venceu há ${Math.abs(diff)} dia${Math.abs(diff)>1?"s":""}`;
+    if (diff === 0) return "Vence hoje!";
+    if (diff === 1) return "Vence amanhã";
+    return `Vence dia ${b.due_day}`;
+  })();
+
+  const borderColor = b.status==="pending" && b.due_day && b.due_day < dayNow
+    ? "#fecaca" : "#e2e8f0";
+
   return (
-    <div style={{ border:`1.5px solid ${b.status!=="pending"?"#e2e8f0":"#e2e8f0"}`, background:st.bg, borderRadius:14, padding:"12px 14px" }}>
+    <div style={{ border:`1.5px solid ${borderColor}`, background:st.bg, borderRadius:14, padding:"12px 14px" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <span style={{ fontSize:11, fontWeight:700, color:C.sub, background:C.pLight, borderRadius:6, padding:"2px 5px", flexShrink:0 }}>{SRC_ICON[b.source_type]||"···"}</span>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:700, fontSize:14 }}>{b.name}</div>
           <div style={{ fontSize:11, color:"#64748b", marginTop:1 }}>
-            {b.due_day ? `Vence dia ${b.due_day}` : "Sem vencimento"}
+            {dueLabel}
             {b.status==="paid_late"&&b.interest_amount>0&&<span style={{ color:"#ef4444", fontWeight:600 }}> · Juros: {fmt(b.interest_amount)}</span>}
           </div>
         </div>
@@ -1362,85 +1377,75 @@ function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, 
 
 // ─── CONTAS A PAGAR ───────────────────────────────────────────────────────────
 function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
-  const [newName,   setNewName]   = useState("");
-  const [newAmt,    setNewAmt]    = useState("");
-  const [newDueDay, setNewDueDay] = useState("");
-  const [marking,   setMarking]   = useState(null);
-  const [interest,  setInterest]  = useState("");
-  const [generated, setGenerated] = useState(false);
+  const [newName,    setNewName]    = useState("");
+  const [newAmt,     setNewAmt]     = useState("");
+  const [newDueDay,  setNewDueDay]  = useState("");
+  const [marking,    setMarking]    = useState(null);
+  const [interest,   setInterest]   = useState("");
+  const [generated,  setGenerated]  = useState(false);
+  const [showPagas,  setShowPagas]  = useState(false);
 
-  // Calcula valor real da fatura do cartão (dinâmico, não o valor salvo)
+  // Calcula valor real da fatura do cartão (dinâmico)
   const realCardAmount = (cardId) => {
     const txTotal   = (mTxs||[]).filter(t=>t.card_id===cardId).reduce((s,t)=>s+Number(t.amount||0),0);
     const instTotal = (mInst||[]).filter(i=>i.card_id===cardId).reduce((s,i)=>s+Number(i.amount||0),0);
     return txTotal + instTotal;
   };
 
-  // Enriquece as entradas com o valor real (para cartões)
   const enrichedBills = (billPay.forPeriod(month, year) || []).map(b => ({
     ...b,
-    amount: b.source_type === "credit_card"
-      ? realCardAmount(b.source_id)
-      : Number(b.amount || 0),
+    amount: b.source_type === "credit_card" ? realCardAmount(b.source_id) : Number(b.amount || 0),
   }));
 
-  // Filtra zeros e ordena por vencimento
-  const activeBills = enrichedBills
-    .filter(b => b.amount > 0)
-    .sort((a, b) => (a.due_day||99) - (b.due_day||99));
-
+  const allBills  = enrichedBills.filter(b => b.amount > 0).sort((a,b) => (a.due_day||99)-(b.due_day||99));
   const zeroBills = enrichedBills.filter(b => b.amount === 0);
 
-  // Agrupa por urgência
-  const today   = new Date();
-  const dayNow  = today.getDate();
-  const urgent  = activeBills.filter(b => b.due_day && b.due_day <= dayNow + 3);
-  const later   = activeBills.filter(b => !b.due_day || b.due_day > dayNow + 3);
+  const dayNow = new Date().getDate();
 
-  // Auto-gera entradas ao abrir a aba
+  // ── 4 grupos de prioridade ──────────────────────────────────────────────────
+  const vencidas  = allBills.filter(b => b.status==="pending" && b.due_day && b.due_day < dayNow);
+  const proximos7 = allBills.filter(b => b.status==="pending" && b.due_day && b.due_day >= dayNow && b.due_day <= dayNow+7);
+  const maisLate  = allBills.filter(b => b.status==="pending" && (!b.due_day || b.due_day > dayNow+7));
+  const pagas     = allBills.filter(b => b.status !== "pending");
+
   useEffect(() => {
     if (!generated && billPay.data !== undefined && !billPay.loading) {
-      billPay.autoGenerate(bills.data, cards.data, txs.data, month, year)
-        .then(() => setGenerated(true));
+      billPay.autoGenerate(bills.data, cards.data, txs.data, month, year).then(()=>setGenerated(true));
     }
   }, [billPay.loading, month, year]);
-
-  // Regenera quando muda o mês
   useEffect(() => { setGenerated(false); }, [month, year]);
 
-  // Totais usando valores reais (enriquecidos)
-  const totalEsperado = activeBills.reduce((s, b) => s + b.amount, 0);
-  const totalPago     = activeBills.filter(b => b.status !== "pending").reduce((s, b) => s + b.amount, 0);
-  const totalPendente = activeBills.filter(b => b.status === "pending").reduce((s, b) => s + b.amount, 0);
-  const totalJuros    = enrichedBills.filter(b => b.status === "paid_late").reduce((s, b) => s + Number(b.interest_amount || 0), 0);
+  const totalEsperado = allBills.reduce((s,b)=>s+b.amount,0);
+  const totalPago     = pagas.reduce((s,b)=>s+b.amount,0);
+  const totalPendente = [...vencidas,...proximos7,...maisLate].reduce((s,b)=>s+b.amount,0);
+  const totalJuros    = enrichedBills.filter(b=>b.status==="paid_late").reduce((s,b)=>s+Number(b.interest_amount||0),0);
 
   const confirmMark = async () => {
     if (!marking) return;
-    if (marking.mode === "paid") {
-      await billPay.markPaid(marking.id);
-    } else {
-      await billPay.markPaidLate(marking.id, interest);
-    }
+    if (marking.mode==="paid") await billPay.markPaid(marking.id);
+    else await billPay.markPaidLate(marking.id, interest);
     setMarking(null); setInterest("");
   };
 
   const addManual = async () => {
     if (!newName) return;
-    await billPay.insert({
-      name: newName, amount: newAmt ? Number(newAmt) : null,
-      due_day: newDueDay ? Number(newDueDay) : null,
-      status: "pending", source_type: "manual", month, year,
-    });
+    await billPay.insert({ name:newName, amount:newAmt?Number(newAmt):null, due_day:newDueDay?Number(newDueDay):null, status:"pending", source_type:"manual", month, year });
     setNewName(""); setNewAmt(""); setNewDueDay("");
   };
 
-  const STATUS_CONFIG = {
-    pending:  { label:"Pendente",         color:C.warn,    bg:"#fffbeb" },
-    paid:     { label:"Pago",             color:C.success, bg:"#f0fdf4" },
-    paid_late:{ label:"Pago com atraso", color:"#d97706", bg:"#fff7ed" },
-  };
+  // Helper: cabeçalho de grupo
+  const GroupHeader = ({ label, count, total, color }) => (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:4, marginBottom:6 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <div style={{ width:8, height:8, borderRadius:"50%", background:color, flexShrink:0 }}/>
+        <span style={{ fontSize:11, fontWeight:700, color, textTransform:"uppercase", letterSpacing:".06em" }}>{label}</span>
+        <span style={{ fontSize:11, color:C.muted }}>({count})</span>
+      </div>
+      {total > 0 && <span style={{ fontSize:12, fontWeight:700, color }}>{fmt(total)}</span>}
+    </div>
+  );
 
-  const SOURCE_ICON = { fixed_bill:"Fixa", credit_card:"Cartão", manual:"Avulsa" };
+  const itemProps = { marking, setMarking, interest, setInterest, confirmMark, billPay, dayNow };
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
@@ -1461,36 +1466,61 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
         </Card>
         <Card style={{ borderTop:`4px solid ${C.danger}`, padding:"14px 16px" }}>
           <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Juros pagos</div>
-          <div style={{ fontSize:20, fontWeight:900, color:totalJuros > 0 ? C.danger : C.muted }}>{fmt(totalJuros)}</div>
+          <div style={{ fontSize:20, fontWeight:900, color:totalJuros>0?C.danger:C.muted }}>{fmt(totalJuros)}</div>
         </Card>
       </div>
 
-      {/* Lista de contas — agrupada por urgência */}
+      {/* Lista agrupada */}
       <Card>
-        <STitle>{MONTHS_FULL[month]} {year} ({activeBills.length} contas)</STitle>
-        {activeBills.length === 0
+        <STitle>{MONTHS_FULL[month]} {year}</STitle>
+        {allBills.length===0
           ? <Empty msg="Carregando contas… abra a aba novamente se demorar." />
-          : (
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          : <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
 
-              {/* Urgente — vence em até 3 dias */}
-              {urgent.length>0&&(
-                <>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.danger, textTransform:"uppercase", letterSpacing:".06em", marginTop:4 }}>Urgente — vence em até 3 dias</div>
-                  {urgent.map(b => <BillItem key={b.id} b={b} marking={marking} setMarking={setMarking} interest={interest} setInterest={setInterest} confirmMark={confirmMark} billPay={billPay}/>)}
-                </>
-              )}
+            {/* Vencidas */}
+            {vencidas.length>0&&(
+              <>
+                <GroupHeader label="Vencidas" count={vencidas.length} total={vencidas.reduce((s,b)=>s+b.amount,0)} color={C.danger}/>
+                {vencidas.map(b=><BillItem key={b.id} b={b} {...itemProps}/>)}
+              </>
+            )}
 
-              {/* Mais tarde */}
-              {later.length>0&&(
-                <>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:".06em", marginTop:urgent.length>0?8:4 }}>Mais tarde</div>
-                  {later.map(b => <BillItem key={b.id} b={b} marking={marking} setMarking={setMarking} interest={interest} setInterest={setInterest} confirmMark={confirmMark} billPay={billPay}/>)}
-                </>
-              )}
+            {/* Próximos 7 dias */}
+            {proximos7.length>0&&(
+              <>
+                <GroupHeader label="Próximos 7 dias" count={proximos7.length} total={proximos7.reduce((s,b)=>s+b.amount,0)} color={C.warn}/>
+                {proximos7.map(b=><BillItem key={b.id} b={b} {...itemProps}/>)}
+              </>
+            )}
 
-            </div>
-          )
+            {/* Mais tarde */}
+            {maisLate.length>0&&(
+              <>
+                <GroupHeader label="Mais tarde" count={maisLate.length} total={maisLate.reduce((s,b)=>s+b.amount,0)} color={C.muted}/>
+                {maisLate.map(b=><BillItem key={b.id} b={b} {...itemProps}/>)}
+              </>
+            )}
+
+            {/* Pagas — colapsável */}
+            {pagas.length>0&&(
+              <>
+                <button onClick={()=>setShowPagas(p=>!p)}
+                  style={{ display:"flex", alignItems:"center", justifyContent:"space-between", background:"none", border:"none", cursor:"pointer", fontFamily:"inherit", width:"100%", padding:"4px 0", marginTop:4 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:C.success }}/>
+                    <span style={{ fontSize:11, fontWeight:700, color:C.success, textTransform:"uppercase", letterSpacing:".06em" }}>Pagas</span>
+                    <span style={{ fontSize:11, color:C.muted }}>({pagas.length})</span>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:C.success }}>{fmt(totalPago)}</span>
+                    <span style={{ color:C.muted, display:"flex" }}>{showPagas?UI.up:UI.down}</span>
+                  </div>
+                </button>
+                {showPagas&&pagas.map(b=><BillItem key={b.id} b={b} {...itemProps}/>)}
+              </>
+            )}
+
+          </div>
         }
         {zeroBills.length>0&&(
           <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${C.border}`, fontSize:11, color:C.muted, textAlign:"center" }}>
