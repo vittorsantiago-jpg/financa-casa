@@ -1270,7 +1270,6 @@ function MetasTab({ goals, active, mExp, month, year }) {
         <STitle>Nova Meta</STitle>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <div style={{ gridColumn:"1/-1" }}><Field label="Nome da meta"><Input placeholder="Ex: Reserva de emergência, Viagem…" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field></div>
-          </div>
           <Field label="Valor alvo (R$)"><CurrencyInput value={form.target_amount} onChange={v=>setForm(p=>({...p,target_amount:v}))}/></Field>
           <Field label="Já guardaram (R$)"><CurrencyInput value={form.current_amount} onChange={v=>setForm(p=>({...p,current_amount:v}))}/></Field>
           <Field label="Prazo (opcional)" span={2}><Input type="date" value={form.deadline} onChange={e=>setForm(p=>({...p,deadline:e.target.value}))}/></Field>
