@@ -901,8 +901,8 @@ function MemberIncomeSection({ member, income, month, year }) {
         </div>
       )}
       {mInc.length===0&&<Empty msg={`Nenhuma entrada de renda para ${member} neste mês.`}/>}
+      {confirmEl}
     </Card>
-    {confirmEl}
   );
 }
 
