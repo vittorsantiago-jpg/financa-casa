@@ -116,7 +116,8 @@ function CatDot({ color, size=14 }) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt   = (v=0)  => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const r     = (v=0)  => Math.round((Number(v)||0) * 100) / 100;
+const fmt   = (v=0)  => r(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const uid   = ()     => Math.random().toString(36).slice(2,9);
 const today = ()     => new Date().toISOString().slice(0,10);
 
@@ -421,10 +422,10 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, cardB, totA, totB, pctA, pctB, ticket, catData, active, goals, mExp, mTxs, setTab, mode, billPay, month, year }) {
   const totalIncome  = salA + salB;
-  const houseFixed   = active.reduce((a,b)=>a+Number(b.amount),0);
-  const houseVar     = mExp.filter(e=>e.pay_method!=="ticket").reduce((a,e)=>a+Number(e.amount),0);
-  const houseCard    = mTxs.reduce((a,t)=>a+Number(t.amount),0);
-  const houseTotal   = houseFixed + houseVar + houseCard;
+  // houseTotal centralizado: usa totA+totB do estado compartilhado
+  // que já inclui fixas + variáveis + cartões + parcelas (mInst)
+  // Ticket é separado pois "não conta no saldo" (benefício alimentação)
+  const houseTotal   = totA + totB;
   const saldo        = totalIncome - houseTotal;
   const isJoint      = mode === "joint";
 
