@@ -453,7 +453,7 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, cardB, totA, totB, pctA, pctB, ticket, catData, active, goals, mExp, mTxs, setTab, mode, billPay, month, year }) {
+function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, cardB, totA, totB, pctA, pctB, ticket, catData, active, goals, mExp, mTxs, setTab, mode, billPay, month, year, income, exps, txs }) {
   const totalIncome  = salA + salB;
   // houseTotal centralizado: usa totA+totB do estado compartilhado
   // que já inclui fixas + variáveis + cartões + parcelas (mInst)
@@ -461,6 +461,31 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
   const houseTotal   = totA + totB;
   const saldo        = totalIncome - houseTotal;
   const isJoint      = mode === "joint";
+
+  // ── Fluxo dos últimos 6 meses ──────────────────────────────────────────────
+  const fixTotal = active.reduce((s, b) => s + Number(b.amount || 0), 0);
+  const flowData = [];
+  for (let i = 5; i >= 0; i--) {
+    let m = month - i, y = year;
+    while (m < 0) { m += 12; y--; }
+    const rec = (income?.data || [])
+      .filter(s => s.month === m && s.year === y && s.status === "received")
+      .reduce((s, r) => s + Number(r.received_amount || 0), 0);
+    const varD = (exps?.data || [])
+      .filter(e => e.month === m && e.year === y && e.pay_method !== "ticket")
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+    const cardD = (txs?.data || [])
+      .filter(t => t.month === m && t.year === y)
+      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const desp = fixTotal + varD + cardD;
+    flowData.push({
+      name: MONTHS_FULL[m].slice(0, 3),
+      Receita: Math.round(rec),
+      Despesas: Math.round(desp),
+      saldo: Math.round(rec - desp),
+    });
+  }
+  const hasFlowData = flowData.some(d => d.Receita > 0 || d.Despesas > 0);
 
   // Contas vencendo em até 2 dias
   const today     = new Date();
@@ -646,6 +671,49 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
             </ResponsiveContainer>
           </Card>
         </div>
+      )}
+
+      {/* Fluxo Mensal */}
+      {hasFlowData && (
+        <Card>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+            <STitle style={{ margin:0 }}>Fluxo Mensal</STitle>
+            <span style={{ fontSize:11, color:C.muted }}>últimos 6 meses</span>
+          </div>
+          {/* Saldo líquido do mês atual destacado */}
+          {(() => {
+            const cur = flowData[flowData.length - 1];
+            const ok  = cur.saldo >= 0;
+            return (
+              <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+                {[
+                  { label:"Receita", val:cur.Receita, c:C.success },
+                  { label:"Despesas", val:cur.Despesas, c:C.danger },
+                  { label:"Saldo", val:cur.saldo, c:ok?C.success:C.danger },
+                ].map(({ label, val, c }) => (
+                  <div key={label} style={{ flex:1, background:"#f8fafc", borderRadius:10, padding:"8px 10px" }}>
+                    <div style={{ fontSize:10, color:C.muted, fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>{label}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:c }}>{fmt(val)}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={flowData} margin={{ top:4, right:4, left:0, bottom:4 }} barCategoryGap="28%">
+              <XAxis dataKey="name" tick={{ fontSize:11 }} />
+              <YAxis tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} tick={{ fontSize:10 }} width={32} />
+              <Tooltip
+                formatter={(v, name) => [fmt(v), name]}
+                allowEscapeViewBox={{ x:false, y:true }}
+                wrapperStyle={{ zIndex:10 }}
+              />
+              <Legend wrapperStyle={{ fontSize:11 }} />
+              <Bar dataKey="Receita"  fill="#10b981" radius={[5,5,0,0]} />
+              <Bar dataKey="Despesas" fill="#ef4444" radius={[5,5,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
       )}
 
       {/* Metas — clicável */}
