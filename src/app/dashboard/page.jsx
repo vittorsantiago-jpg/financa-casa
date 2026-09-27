@@ -19,16 +19,16 @@ import AppLock from "@/components/AppLock";
 const MONTHS_FULL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
 const CATS = {
-  moradia:       { label:"Moradia",             icon:"🏠", color:"#6366f1" },
-  consumo:       { label:"Contas de Consumo",   icon:"⚡", color:"#f59e0b" },
-  mercado:       { label:"Mercado / Aliment.",  icon:"🛒", color:"#10b981" },
-  saude:         { label:"Saúde",               icon:"❤️", color:"#ef4444" },
-  assinaturas:   { label:"Assinaturas",         icon:"📺", color:"#8b5cf6" },
-  transporte:    { label:"Transporte",           icon:"🚗", color:"#3b82f6" },
-  educacao:      { label:"Educação",            icon:"📚", color:"#14b8a6" },
-  lazer:         { label:"Lazer / Saídas",      icon:"🎉", color:"#ec4899" },
-  investimentos: { label:"Investimentos",       icon:"💰", color:"#f97316" },
-  roupas:        { label:"Roupas / Compras",    icon:"👕", color:"#94a3b8" },
+  moradia:       { label:"Moradia",             color:"#6366f1" },
+  consumo:       { label:"Contas de Consumo",   color:"#f59e0b" },
+  mercado:       { label:"Mercado / Aliment.",  color:"#10b981" },
+  saude:         { label:"Saúde",               color:"#ef4444" },
+  assinaturas:   { label:"Assinaturas",         color:"#8b5cf6" },
+  transporte:    { label:"Transporte",           color:"#3b82f6" },
+  educacao:      { label:"Educação",            color:"#14b8a6" },
+  lazer:         { label:"Lazer / Saídas",      color:"#ec4899" },
+  investimentos: { label:"Investimentos",       color:"#f97316" },
+  roupas:        { label:"Roupas / Compras",    color:"#94a3b8" },
 };
 
 const SPLIT_OPTS = [
@@ -39,10 +39,10 @@ const SPLIT_OPTS = [
 const PAY_METHODS = [
   { value:"debit",  label:"Débito / Transferência" },
   { value:"cash",   label:"Dinheiro" },
-  { value:"ticket", label:"🎟️ Ticket Refeição/Aliment." },
+  { value:"ticket", label:"Ticket Refeição/Aliment." },
 ];
 
-const GOAL_ICONS = ["💰","🏠","✈️","🚗","📚","👶","💍","🎓","🏖️","🏋️","💻","🎯","🐾"];
+// GOAL_ICONS removed — icon picker replaced with fixed SVG
 
 // ─── Design ───────────────────────────────────────────────────────────────────
 const C = {
@@ -73,6 +73,48 @@ const NAV_ICONS = {
   config:      <NavSvg><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></NavSvg>,
 };
 
+// ─── UI Action Icons (SVG inline) ─────────────────────────────────────────────
+function IS({ d, w=15, h=15, vb="0 0 24 24", sw=2, children }) {
+  return (
+    <svg width={w} height={h} viewBox={vb} fill="none" stroke="currentColor"
+      strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+      {d ? <path d={d}/> : children}
+    </svg>
+  );
+}
+const UI = {
+  trash:   <IS><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></IS>,
+  edit:    <IS><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></IS>,
+  plus:    <IS sw={2.5}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></IS>,
+  x:       <IS sw={2.5}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></IS>,
+  check:   <IS sw={2.5}><polyline points="20 6 9 17 4 12"/></IS>,
+  warn:    <IS><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></IS>,
+  clock:   <IS><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></IS>,
+  save:    <IS><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IS>,
+  copy:    <IS><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></IS>,
+  up:      <IS w={12} h={12} sw={2.5}><polyline points="18 15 12 9 6 15"/></IS>,
+  down:    <IS w={12} h={12} sw={2.5}><polyline points="6 9 12 15 18 9"/></IS>,
+  play:    <IS><polygon points="5 3 19 12 5 21 5 3"/></IS>,
+  pause:   <IS><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></IS>,
+  user:    <IS><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></IS>,
+  link:    <IS><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></IS>,
+  mail:    <IS><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></IS>,
+  chart:   <IS><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></IS>,
+  shield:  <IS><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></IS>,
+  income:  <IS><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></IS>,
+  home:    <IS><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IS>,
+  balance: <IS><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></IS>,
+  ticket:  <IS><path d="M2 9a3 3 0 010-6h20a3 3 0 010 6"/><path d="M2 15a3 3 0 000 6h20a3 3 0 000-6"/><line x1="2" y1="12" x2="22" y2="12"/></IS>,
+  card:    <IS><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></IS>,
+  target:  <IS><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></IS>,
+  trending:<IS><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></IS>,
+};
+
+// Dot colorida para categorias (substitui emojis de categoria)
+function CatDot({ color, size=14 }) {
+  return <span style={{ display:"inline-block", width:size, height:size, borderRadius:"50%", background:color||"#94a3b8", flexShrink:0 }}/>;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt   = (v=0)  => Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 const uid   = ()     => Math.random().toString(36).slice(2,9);
@@ -87,7 +129,7 @@ function splitShare(amount, splitType, splitMember, memberA, memberB) {
 }
 
 function healthColor(p) { return p<=0?"#94a3b8":p<0.5?"#10b981":p<0.75?"#f59e0b":"#ef4444"; }
-function healthLabel(p) { return p<=0?"Sem dados":p<0.5?"Saudável 🟢":p<0.75?"Atenção 🟡":"Crítico 🔴"; }
+function healthLabel(p) { return p<=0?"Sem dados":p<0.5?"Saudável":p<0.75?"Atenção":"Crítico"; }
 
 // ─── UI Primitives ────────────────────────────────────────────────────────────
 function Card({ children, style={} }) {
@@ -231,7 +273,7 @@ export default function Dashboard() {
 
   if (loading) return (
     <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:C.bg,flexDirection:"column",gap:12 }}>
-      <div style={{ fontSize:32 }}>💜</div>
+      <div style={{ display:"flex", justifyContent:"center", color:"rgba(255,255,255,.8)" }}><IS w={36} h={36} sw={1.5}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></IS></div>
       <p style={{ color:C.primary,fontWeight:700,fontSize:16,margin:0 }}>Carregando…</p>
     </div>
   );
@@ -397,14 +439,14 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       {(!salA && !salB) && (
         <div style={{ background:"#fffbeb", border:"1.5px solid #fcd34d", borderRadius:12, padding:"12px 16px", color:"#92400e", fontSize:13, fontWeight:500 }}>
-          ⚠️ Registre a renda deste mês na aba <strong>💰 Renda</strong> para ver os indicadores completos.
+          Registre a renda deste mês na aba <strong>Renda</strong> para ver os indicadores completos.
         </div>
       )}
 
       {/* Alerta de vencimento urgente */}
       {urgentBills.length > 0 && (
         <div onClick={()=>setTab("contas")} style={{ background:"rgba(217,119,6,.12)", border:"1.5px solid rgba(217,119,6,.5)", borderRadius:14, padding:"12px 16px", cursor:"pointer", WebkitTapHighlightColor:"transparent" }}>
-          <div style={{ fontWeight:800, fontSize:13, color:"#fbbf24", marginBottom:8 }}>⚠️ Vence nos próximos 2 dias</div>
+          <div style={{ fontWeight:800, fontSize:13, color:"#fbbf24", marginBottom:8 }}>Vence nos próximos 2 dias</div>
           {urgentBills.slice(0,3).map((b,i)=>(
             <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"rgba(251,191,36,.8)", padding:"3px 0" }}>
               <span>{b.name}</span><span style={{ fontWeight:700 }}>{fmt(b.amount)}</span>
@@ -421,10 +463,10 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
       {/* Cards de resumo — clicáveis */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12 }}>
         {[
-          { icon:"💵", title:"Renda Total",  value:fmt(totalIncome), sub:`${memberA} + ${memberB}`,      c:C.primary, toTab:"renda"  },
-          { icon:"🏠", title:"Gastos Casa",  value:fmt(houseTotal),  sub:"Fixas + variáveis + cartões",  c:C.danger,  toTab:"contas" },
-          { icon:"✅", title:"Saldo do Mês", value:fmt(saldo),       sub:saldo>=0?"Livre p/ poupança":"Atenção!", c:saldo>=0?C.success:C.danger, toTab:"metas" },
-          ...(ticket>0?[{ icon:"🎟️", title:"Via Ticket", value:fmt(ticket), sub:"Não conta no saldo", c:C.muted, toTab:null }]:[]),
+          { icon:UI.income, title:"Renda Total",  value:fmt(totalIncome), sub:`${memberA} + ${memberB}`,      c:C.primary, toTab:"renda"  },
+          { icon:UI.home,   title:"Gastos Casa",  value:fmt(houseTotal),  sub:"Fixas + variáveis + cartões",  c:C.danger,  toTab:"contas" },
+          { icon:UI.check,  title:"Saldo do Mês", value:fmt(saldo),       sub:saldo>=0?"Livre p/ poupança":"Atenção!", c:saldo>=0?C.success:C.danger, toTab:"metas" },
+          ...(ticket>0?[{ icon:UI.ticket, title:"Via Ticket", value:fmt(ticket), sub:"Não conta no saldo", c:C.muted, toTab:null }]:[]),
         ].map(({icon,title,value,sub,c,toTab})=>(
           <div key={title} onClick={toTab?()=>setTab(toTab):undefined}
             style={{ background:C.card, borderRadius:18, padding:"16px 18px", boxShadow:"0 2px 10px rgba(79,70,229,.07)", border:`1px solid ${C.border}`, borderTop:`4px solid ${c}`, cursor:toTab?"pointer":"default", position:"relative", transition:"transform .12s", WebkitTapHighlightColor:"transparent" }}
@@ -432,7 +474,7 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
             onPointerUp={e=>{ e.currentTarget.style.transform=""; }}
             onPointerLeave={e=>{ e.currentTarget.style.transform=""; }}
           >
-            <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
+            <div style={{ marginBottom:8, display:"flex", alignItems:"center", opacity:.85 }}>{icon}</div>
             <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>{title}</div>
             <div style={{ fontSize:21, fontWeight:900, color:c, marginBottom:2 }}>{value}</div>
             <div style={{ fontSize:11, color:C.muted }}>{sub}</div>
@@ -449,7 +491,7 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
           onPointerUp={e=>e.currentTarget.style.transform=""}
           onPointerLeave={e=>e.currentTarget.style.transform=""}>
           <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-            <div style={{ width:44, height:44, borderRadius:"50%", background:"#eef2ff", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:20, color:C.primary }}>🏠</div>
+            <div style={{ width:44, height:44, borderRadius:"50%", background:"#eef2ff", display:"flex", alignItems:"center", justifyContent:"center", color:C.primary }}>{UI.home}</div>
             <div style={{ flex:1 }}>
               <div style={{ fontWeight:900, fontSize:16, color:C.text }}>A Casa — Modo Conjunto</div>
               <div style={{ fontSize:12, color:C.muted }}>{totalIncome > 0 ? `Renda total: ${fmt(totalIncome)}` : "Sem renda registrada"}</div>
@@ -582,13 +624,13 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
           onPointerLeave={e=>{ e.currentTarget.style.transform=""; }}
         >
           <div style={{ position:"absolute", top:14, right:16, color:C.muted, fontSize:16, opacity:.4 }}>›</div>
-          <STitle>🎯 Metas de Poupança</STitle>
+          <STitle>Metas de Poupança</STitle>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
             {goals.data.map(g=>{
               const p=Math.min((Number(g.current_amount)||0)/(Number(g.target_amount)||1),1);
               return <div key={g.id}>
                 <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5, fontSize:13 }}>
-                  <span style={{ fontWeight:700 }}>{g.icon} {g.name}</span>
+                  <span style={{ fontWeight:700 }}>{g.name}</span>
                   <span style={{ color:C.sub }}>{fmt(g.current_amount)} / {fmt(g.target_amount)}</span>
                 </div>
                 <ProgressBar value={g.current_amount} max={g.target_amount} color={p>=1?C.success:C.primary} height={9}/>
@@ -606,9 +648,9 @@ function DashTab({ memberA, memberB, salA, salB, fixA, fixB, varA, varB, cardA, 
 // Seção de renda individual — genérica para qualquer membro
 function MemberIncomeSection({ member, income, month, year }) {
   const TYPE_OPTS = [
-    { id:"clt",       icon:"💼", label:"CLT"       },
-    { id:"freelance", icon:"💸", label:"Freelance"  },
-    { id:"other",     icon:"📦", label:"Outro"      },
+    { id:"clt",       label:"CLT"       },
+    { id:"freelance", label:"Freelance"  },
+    { id:"other",     label:"Outro"      },
   ];
   const [type,     setType]    = useState("freelance");
   const [fName,    setFName]   = useState("");
@@ -653,19 +695,19 @@ function MemberIncomeSection({ member, income, month, year }) {
     setMarking(null); setMarkAmt(""); setMarkDate(today());
   };
 
-  const SRC_ICON = { clt:"💼", freelance:"💸", other:"📦" };
+  const SRC_ICON = { clt:"CLT", freelance:"Free", other:"Outro" };
 
   return (
     <Card style={{ borderLeft:`5px solid ${C.primary}` }}>
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
         <div>
-          <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>👤 {member}</h2>
+          <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:C.text }}>{member}</h2>
         </div>
         <div style={{ textAlign:"right" }}>
           <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase" }}>Recebido</div>
           <div style={{ fontSize:20, fontWeight:900, color:C.primary }}>{fmt(received)}</div>
-          {pending>0&&<div style={{ fontSize:11, color:C.warn, marginTop:2 }}>⏳ {fmt(pending)} pendente</div>}
+          {pending>0&&<div style={{ fontSize:11, color:C.warn, marginTop:2 }}>{fmt(pending)} pendente</div>}
         </div>
       </div>
 
@@ -679,7 +721,7 @@ function MemberIncomeSection({ member, income, month, year }) {
             color:type===t.id?C.primary:C.muted,
             boxShadow:type===t.id?"0 1px 4px rgba(0,0,0,.08)":"none",
             transition:"all .15s",
-          }}>{t.icon} {t.label}</button>
+          }}>{t.label}</button>
         ))}
       </div>
 
@@ -703,7 +745,7 @@ function MemberIncomeSection({ member, income, month, year }) {
           {type==="clt"?"+ Adicionar Empregador":"+ Registrar Recebimento"}
         </Btn>
         {type==="clt"&&hasPrevCLT()&&cltList.length===0&&(
-          <Btn variant="ghost" onClick={copyPrev} style={{ fontSize:12, padding:"9px 12px" }}>📋 Copiar anterior</Btn>
+          <Btn variant="ghost" onClick={copyPrev} style={{ fontSize:12, padding:"9px 12px" }}>Copiar mês anterior</Btn>
         )}
       </div>
 
@@ -721,7 +763,7 @@ function MemberIncomeSection({ member, income, month, year }) {
                 borderRadius:13, padding:"11px 13px"
               }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:18 }}>{SRC_ICON[s.source_type]||"💰"}</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:C.sub, background:C.pLight, borderRadius:6, padding:"2px 5px" }}>{SRC_ICON[s.source_type]||"···"}</span>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:13 }}>{s.source_name}</div>
                     <div style={{ fontSize:11, color:C.muted }}>
@@ -733,20 +775,20 @@ function MemberIncomeSection({ member, income, month, year }) {
                   </div>
                   <div style={{ display:"flex", gap:6, alignItems:"center" }}>
                     {isCLT&&(recv
-                      ? <Badge color={C.success}>✅ Recebido</Badge>
-                      : <Badge color={C.warn}>⏳ Pendente</Badge>
+                      ? <Badge color={C.success}>Recebido</Badge>
+                      : <Badge color={C.warn}>Pendente</Badge>
                     )}
                     {isCLT&&!recv&&(
                       <Btn onClick={()=>{ setMarking(s.id); setMarkAmt(String(s.expected_amount||"")); }} style={{ fontSize:11, padding:"5px 10px" }}>✓ Confirmar</Btn>
                     )}
-                    <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer" }}>🗑️</button>
+                    <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                   </div>
                 </div>
                 {isM&&(
                   <div style={{ marginTop:10, padding:"10px 12px", background:"#fffbeb", borderRadius:10, display:"grid", gridTemplateColumns:"1fr 1fr auto auto", gap:10, alignItems:"end" }}>
                     <Field label="Valor recebido (R$)"><CurrencyInput value={markAmt} onChange={setMarkAmt}/></Field>
                     <Field label="Data"><Input type="date" value={markDate} onChange={e=>setMarkDate(e.target.value)}/></Field>
-                    <Btn onClick={()=>markReceived(s.id)}>💾</Btn>
+                    <Btn onClick={()=>markReceived(s.id)}>Salvar</Btn>
                     <Btn variant="ghost" onClick={()=>setMarking(null)}>✕</Btn>
                   </div>
                 )}
@@ -794,10 +836,10 @@ function FixasTab({ bills, memberA, memberB, sh }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       <Card>
-        <STitle>{editing?"✏️ Editar Conta Fixa":"➕ Nova Conta Fixa"}</STitle>
+        <STitle>{editing?"Editar Conta Fixa":"Nova Conta Fixa"}</STitle>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Field label="Nome" span={2}><Input placeholder="Ex: Aluguel, Netflix…" value={form.name} onChange={e=>f("name")(e.target.value)}/></Field>
-          <Field label="Categoria"><Select value={form.category} onChange={e=>f("category")(e.target.value)}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
+          <Field label="Categoria"><Select value={form.category} onChange={e=>f("category")(e.target.value)}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</Select></Field>
           <Field label="Valor (R$)"><CurrencyInput value={form.amount} onChange={v=>f("amount")(v)}/></Field>
           <Field label="Divisão">
             <Select value={form.split_type} onChange={e=>f("split_type")(e.target.value)}>
@@ -830,7 +872,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
 
       {bills.data.length>0&&(
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
-          {[["🏠 Casa",fmt(tCasa),C.text],[`👤 ${memberA}`,fmt(tA),C.primary],[`👤 ${memberB}`,fmt(tB),C.success]].map(([l,v,c])=>(
+          {[["Casa",fmt(tCasa),C.text],[`${memberA}`,fmt(tA),C.primary],[`${memberB}`,fmt(tB),C.success]].map(([l,v,c])=>(
             <Card key={l} style={{ textAlign:"center", padding:"14px 16px" }}>
               <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>{l}</div>
               <div style={{ fontSize:20, fontWeight:900, color:c }}>{v}</div>
@@ -840,15 +882,15 @@ function FixasTab({ bills, memberA, memberB, sh }) {
       )}
 
       <Card>
-        <STitle>📋 Contas Fixas ({bills.data.filter(b=>b.active!==false).length} ativas)</STitle>
-        {bills.data.length===0?<Empty msg="Nenhuma conta fixa. Adicione acima 👆"/>:(
+        <STitle>Contas Fixas ({bills.data.filter(b=>b.active!==false).length} ativas)</STitle>
+        {bills.data.length===0?<Empty msg="Nenhuma conta fixa cadastrada."/>:(
           <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
             {bills.data.map(b=>{
               const cat=CATS[b.category]||{}; const s=sh(b); const off=b.active===false;
               return <div key={b.id} style={{ padding:"12px 14px", border:`1.5px solid ${C.border}`, borderRadius:13, opacity:off?.45:1, background:off?"#f8fafc":"#fff" }}>
                 {/* Linha 1: ícone + nome + valor */}
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                  <span style={{ fontSize:20, flexShrink:0 }}>{cat.icon}</span>
+                  <span style={{ flexShrink:0 }}><CatDot color={cat.color} size={18}/></span>
                   <div style={{ flex:1, fontWeight:700, fontSize:14, lineHeight:1.3 }}>
                     {b.name} {off&&<Badge color={C.muted}>pausada</Badge>}
                   </div>
@@ -863,9 +905,9 @@ function FixasTab({ bills, memberA, memberB, sh }) {
                     {b.due_day&&` · dia ${b.due_day}`}
                   </div>
                   <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                    <button onClick={()=>toggle(b.id)} title={off?"Ativar":"Pausar"} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", fontSize:15 }}>{off?"▶":"⏸"}</button>
-                    <button onClick={()=>edit(b)} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", fontSize:15 }}>✏️</button>
-                    <button onClick={()=>del(b.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:34, height:34, cursor:"pointer", fontSize:15 }}>🗑️</button>
+                    <button onClick={()=>toggle(b.id)} title={off?"Ativar":"Pausar"} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{off?UI.play:UI.pause}</button>
+                    <button onClick={()=>edit(b)} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.edit}</button>
+                    <button onClick={()=>del(b.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                   </div>
                 </div>
               </div>;
@@ -896,13 +938,13 @@ function LancTab({ exps, memberA, memberB, month, year, mExp }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       <Card>
-        <STitle>➕ Novo Lançamento</STitle>
+        <STitle>Novo Lançamento</STitle>
         <div style={{ background:C.pLight, border:`1.5px solid #a5b4fc`, borderRadius:10, padding:"10px 14px", marginBottom:14, fontSize:13, color:"#3730a3" }}>
-          💳 Gastos no <strong>cartão de crédito</strong>? Use a aba <strong>Cartões</strong>.
+          Gastos no cartão de crédito? Use a aba <strong>Cartões</strong>.
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Field label="Descrição" span={2}><Input placeholder="Ex: Farmácia, Combustível…" value={form.description} onChange={e=>f("description")(e.target.value)}/></Field>
-          <Field label="Categoria"><Select value={form.category} onChange={e=>f("category")(e.target.value)}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
+          <Field label="Categoria"><Select value={form.category} onChange={e=>f("category")(e.target.value)}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</Select></Field>
           <Field label="Valor (R$)"><CurrencyInput value={form.amount} onChange={v=>f("amount")(v)}/></Field>
           <Field label="Forma de pagamento"><Select value={form.pay_method} onChange={e=>f("pay_method")(e.target.value)}>{PAY_METHODS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</Select></Field>
           <Field label="Divisão">
@@ -918,25 +960,25 @@ function LancTab({ exps, memberA, memberB, month, year, mExp }) {
 
       {mExp.length>0&&(
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Card style={{ textAlign:"center", padding:"14px 16px" }}><div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>💸 Em Dinheiro/Débito</div><div style={{ fontSize:20, fontWeight:900, color:C.danger }}>{fmt(sumCash)}</div></Card>
-          <Card style={{ textAlign:"center", padding:"14px 16px" }}><div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>🎟️ Via Ticket</div><div style={{ fontSize:20, fontWeight:900, color:C.muted }}>{fmt(sumTicket)}</div></Card>
+          <Card style={{ textAlign:"center", padding:"14px 16px" }}><div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Em Dinheiro/Débito</div><div style={{ fontSize:20, fontWeight:900, color:C.danger }}>{fmt(sumCash)}</div></Card>
+          <Card style={{ textAlign:"center", padding:"14px 16px" }}><div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Via Ticket</div><div style={{ fontSize:20, fontWeight:900, color:C.muted }}>{fmt(sumTicket)}</div></Card>
         </div>
       )}
 
       <Card>
-        <STitle>💸 {MONTHS_FULL[month]} {year} ({mExp.length})</STitle>
+        <STitle>{MONTHS_FULL[month]} {year} ({mExp.length})</STitle>
         {sorted.length===0?<Empty msg="Nenhum lançamento neste mês."/>:(
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {sorted.map(e=>{
               const cat=CATS[e.category]||{}; const isT=e.pay_method==="ticket";
               return <div key={e.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 13px", border:`1.5px solid ${C.border}`, borderRadius:12, background:isT?"#f8fafc":"#fff" }}>
-                <span style={{ fontSize:20, minWidth:26 }}>{cat.icon}</span>
+                <span style={{ minWidth:26, display:"flex", alignItems:"center" }}><CatDot color={cat.color} size={16}/></span>
                 <div style={{ flex:1 }}>
                   <div style={{ fontWeight:700, fontSize:13 }}>{e.description}{isT&&<span style={{ background:"#e0f2fe",color:"#0369a1",fontSize:10,borderRadius:6,padding:"2px 6px",marginLeft:6 }}>ticket</span>}</div>
                   <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{e.expense_date} · {e.split_type==="half"?"50/50":`${e.split_member} paga`}</div>
                 </div>
                 <div style={{ fontWeight:800, color:isT?C.muted:C.text, minWidth:85, textAlign:"right" }}>{fmt(e.amount)}</div>
-                <button onClick={()=>exps.remove(e.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer" }}>🗑️</button>
+                <button onClick={()=>exps.remove(e.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
               </div>;
             })}
           </div>
@@ -984,7 +1026,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       <Card>
-        <STitle>➕ Novo Cartão</STitle>
+        <STitle>Novo Cartão</STitle>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Field label="Apelido" span={2}><Input placeholder="Ex: Nubank Vittor" value={cForm.name} onChange={e=>setCF(p=>({...p,name:e.target.value}))}/></Field>
           <Field label="Banco / Bandeira"><Input placeholder="Ex: Nubank Mastercard" value={cForm.bank} onChange={e=>setCF(p=>({...p,bank:e.target.value}))}/></Field>
@@ -1008,13 +1050,13 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                 {/* Linha compacta sempre visível */}
                 <div onClick={()=>toggleCard(c.id)} style={{ padding:"11px 12px", cursor:"pointer" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:2 }}>
-                    <div style={{ fontWeight:800, fontSize:12, color:C.text, lineHeight:1.3 }}>💳 {c.name}</div>
-                    <button onClick={e=>{e.stopPropagation();delCard(c.id);}} style={{ background:"none", border:"none", cursor:"pointer", fontSize:12, color:C.muted, padding:0, lineHeight:1 }}>🗑️</button>
+                    <div style={{ fontWeight:800, fontSize:12, color:C.text, lineHeight:1.3 }}>{c.name}</div>
+                    <button onClick={e=>{e.stopPropagation();delCard(c.id);}} style={{ background:"none", border:"none", cursor:"pointer", color:C.muted, padding:0, lineHeight:1, display:"flex", alignItems:"center" }}>{UI.trash}</button>
                   </div>
                   <div style={{ fontSize:11, color:C.muted, marginBottom:6 }}>{c.bank} · {c.owner==="both"?"Ambos":c.owner}</div>
                   <div style={{ fontWeight:900, fontSize:15, color:uc, marginBottom:4 }}>{fmt(spent)}</div>
                   {lim>0&&<ProgressBar value={spent} max={lim} color={uc} height={4}/>}
-                  <div style={{ fontSize:10, color:C.muted, marginTop:4 }}>{isOpen?"▲ ocultar":"▼ detalhes"}</div>
+                  <div style={{ fontSize:10, color:C.muted, marginTop:4 }}>{isOpen?"Ocultar":"Detalhes"}</div>
                 </div>
                 {/* Detalhes expandidos */}
                 {isOpen&&(
@@ -1035,18 +1077,18 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
       {/* Botões de ação */}
       {cards.data.length>0&&(
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Btn onClick={()=>setAdding(adding==="tx"?null:"tx")} style={{ width:"100%" }}>💸 Lançamento avulso</Btn>
-          <Btn onClick={()=>setAdding(adding==="plan"?null:"plan")} variant="ghost" style={{ width:"100%" }}>🔄 Compra parcelada</Btn>
+          <Btn onClick={()=>setAdding(adding==="tx"?null:"tx")} style={{ width:"100%" }}>Lançamento avulso</Btn>
+          <Btn onClick={()=>setAdding(adding==="plan"?null:"plan")} variant="ghost" style={{ width:"100%" }}>Compra parcelada</Btn>
         </div>
       )}
 
       {/* Formulário: Lançamento avulso */}
       {adding==="tx"&&cards.data.length>0&&(
         <Card>
-          <STitle>💸 Novo Lançamento Avulso</STitle>
+          <STitle>Novo Lançamento Avulso</STitle>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
             <Field label="Cartão"><Select value={tForm.card_id} onChange={e=>setTF(p=>({...p,card_id:e.target.value}))}><option value="">Selecione…</option>{cards.data.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
-            <Field label="Categoria"><Select value={tForm.category} onChange={e=>setTF(p=>({...p,category:e.target.value}))}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
+            <Field label="Categoria"><Select value={tForm.category} onChange={e=>setTF(p=>({...p,category:e.target.value}))}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</Select></Field>
             <Field label="Descrição" span={2}><Input placeholder="Ex: iFood, Amazon…" value={tForm.description} onChange={e=>setTF(p=>({...p,description:e.target.value}))}/></Field>
             <Field label="Valor (R$)"><CurrencyInput value={tForm.amount} onChange={v=>setTF(p=>({...p,amount:v}))}/></Field>
             <Field label="Divisão">
@@ -1064,10 +1106,10 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
       {/* Formulário: Compra parcelada */}
       {adding==="plan"&&cards.data.length>0&&(
         <Card style={{ border:`2px solid ${C.primary}` }}>
-          <STitle>🔄 Nova Compra Parcelada</STitle>
+          <STitle>Nova Compra Parcelada</STitle>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
             <Field label="Cartão"><Select value={pForm.card_id} onChange={e=>setPF(p=>({...p,card_id:e.target.value}))}><option value="">Selecione…</option>{cards.data.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
-            <Field label="Categoria"><Select value={pForm.category} onChange={e=>setPF(p=>({...p,category:e.target.value}))}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</Select></Field>
+            <Field label="Categoria"><Select value={pForm.category} onChange={e=>setPF(p=>({...p,category:e.target.value}))}>{Object.entries(CATS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</Select></Field>
             <Field label="Descrição" span={2}><Input placeholder="Ex: TV Samsung, Zara, Nike…" value={pForm.description} onChange={e=>setPF(p=>({...p,description:e.target.value}))}/></Field>
             <Field label="Nº de parcelas"><Input type="number" placeholder="Ex: 12" min={2} max={48} value={pForm.total_installments} onChange={e=>setPF(p=>({...p,total_installments:e.target.value}))}/></Field>
             <Field label="Divisão">
@@ -1079,7 +1121,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
             <Field label="Valor 1ª parcela (R$)"><CurrencyInput value={pForm.firstAmount} onChange={v=>setPF(p=>({...p,firstAmount:v}))}/></Field>
             <Field label="Demais parcelas (R$)"><CurrencyInput value={pForm.recurAmount} onChange={v=>setPF(p=>({...p,recurAmount:v}))}/></Field>
             <div style={{ gridColumn:"1/-1", background:C.pLight, borderRadius:10, padding:"8px 14px", fontSize:12, color:C.primary }}>
-              💡 Deixe "Demais parcelas" em branco se todas forem iguais à primeira. Mês de início: <strong>{MONTHS_FULL[month]} {year}</strong>
+              Dica: Deixe "Demais parcelas" em branco se todas forem iguais à primeira. Mês de início: <strong>{MONTHS_FULL[month]} {year}</strong>
             </div>
           </div>
           <Btn onClick={addPlan} style={{ width:"100%" }}>Criar Parcelamento</Btn>
@@ -1088,7 +1130,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
 
       {(mTxs.length>0||mInst.length>0)&&(
         <Card>
-          <STitle>🧾 Fatura — {MONTHS_FULL[month]} {year}</STitle>
+          <STitle>Fatura — {MONTHS_FULL[month]} {year}</STitle>
           {cards.data.map(c=>{
             const txs_c  = mTxs.filter(t=>t.card_id===c.id).sort((a,b)=>b.transaction_date.localeCompare(a.transaction_date));
             const inst_c = mInst.filter(i=>i.card_id===c.id);
@@ -1100,7 +1142,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                 {/* Header do cartão — clicável para colapsar */}
                 <div onClick={()=>toggleFatura(c.id)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", paddingBottom:6, borderBottom:`1.5px solid ${C.border}`, cursor:"pointer", marginBottom:isOpen?8:0 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <span style={{ fontSize:16 }}>💳</span>
+                    <span style={{ display:"flex", alignItems:"center", color:C.primary }}>{UI.card}</span>
                     <span style={{ fontWeight:800, fontSize:14, color:C.primary }}>{c.name}</span>
                     <span style={{ fontSize:11, color:C.muted }}>({txs_c.length+inst_c.length} itens)</span>
                   </div>
@@ -1114,19 +1156,19 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                     {txs_c.map(t=>{
                       const cat=CATS[t.category]||{};
                       return <div key={t.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 11px", border:`1.5px solid ${C.border}`, borderRadius:10 }}>
-                        <span>{cat.icon}</span>
+                        <CatDot color={cat.color} size={14}/>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:13, fontWeight:700 }}>{t.description}</div>
                           <div style={{ fontSize:11, color:C.muted }}>{t.transaction_date} · {t.split_type==="half"?"50/50":`${t.split_member} paga`}</div>
                         </div>
                         <div style={{ fontWeight:800, fontSize:14 }}>{fmt(t.amount)}</div>
-                        <button onClick={()=>txs.remove(t.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer" }}>🗑️</button>
+                        <button onClick={()=>txs.remove(t.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                       </div>;
                     })}
                     {inst_c.map(i=>{
                       const cat=CATS[i.plan?.category]||{};
                       return <div key={i.id} style={{ display:"flex", alignItems:"center", gap:9, padding:"8px 11px", border:`1.5px solid #a5b4fc`, borderRadius:10, background:"#eef2ff" }}>
-                        <span>{cat.icon||"🔄"}</span>
+                        <CatDot color={cat.color} size={14}/>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:13, fontWeight:700 }}>
                             {i.plan?.description}
@@ -1149,8 +1191,8 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
         <Card>
           {/* Header colapsável dos parcelamentos */}
           <div onClick={()=>setShowInstall(p=>!p)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:showInstall?14:0 }}>
-            <STitle style={{ margin:0 }}>🔄 Parcelamentos Ativos <span style={{ color:C.primary }}>({activePlans.length})</span></STitle>
-            <span style={{ fontSize:13, color:C.muted }}>{showInstall?"▲ Recolher":"▼ Ver todos"}</span>
+            <STitle style={{ margin:0 }}>Parcelamentos Ativos <span style={{ color:C.primary }}>({activePlans.length})</span></STitle>
+            <span style={{ fontSize:13, color:C.muted, display:"flex", alignItems:"center", gap:3 }}>{showInstall?UI.up:UI.down}{showInstall?"Recolher":"Ver todos"}</span>
           </div>
           {showInstall&&(
           <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -1162,7 +1204,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
               const cat       = CATS[p.category]||{};
               return (
                 <div key={p.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 14px", border:`1.5px solid ${C.border}`, borderRadius:12, background:"#f8fafc" }}>
-                  <span style={{ fontSize:20 }}>{cat.icon||"🔄"}</span>
+                  <span style={{ display:"flex", alignItems:"center" }}><CatDot color={cat.color} size={16}/></span>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:14 }}>{p.description}</div>
                     <div style={{ fontSize:11, color:C.muted, marginBottom:4 }}>
@@ -1170,7 +1212,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                     </div>
                     <ProgressBar value={paid_c} max={p.total_installments} color={C.primary} height={5}/>
                   </div>
-                  <button onClick={()=>{if(confirm(`Cancelar "${p.description}"? Remove as parcelas futuras.`)) instHook.cancelPlan(p.id);}} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", fontSize:12 }}>🗑️</button>
+                  <button onClick={()=>{if(confirm(`Cancelar "${p.description}"? Remove as parcelas futuras.`)) instHook.cancelPlan(p.id);}} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                 </div>
               );
             })}
@@ -1179,14 +1221,14 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
         </Card>
       )}
 
-      {cards.data.length===0&&<Card><Empty msg="Nenhum cartão cadastrado. Adicione acima 👆"/></Card>}
+      {cards.data.length===0&&<Card><Empty msg="Nenhum cartão cadastrado."/></Card>}
     </div>
   );
 }
 
 // ─── METAS ────────────────────────────────────────────────────────────────────
 function MetasTab({ goals, active, mExp, month, year }) {
-  const blank = { name:"", icon:"💰", target_amount:"", current_amount:"0", deadline:"" };
+  const blank = { name:"", icon:"", target_amount:"", current_amount:"0", deadline:"" };
   const [form, setForm]   = useState(blank);
   const [depId, setDepId] = useState(null);
   const [dep,   setDep]   = useState("");
@@ -1212,7 +1254,7 @@ function MetasTab({ goals, active, mExp, month, year }) {
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
       {est>0&&(
         <div style={{ background:`linear-gradient(135deg,${C.header},#5b21b6)`, borderRadius:18, padding:"20px 18px", color:"#fff" }}>
-          <div style={{ fontWeight:900, fontSize:16, marginBottom:6, textAlign:"center" }}>🛡️ Reserva de Emergência Recomendada</div>
+          <div style={{ fontWeight:900, fontSize:16, marginBottom:6, textAlign:"center" }}>Reserva de Emergência Recomendada</div>
           <p style={{ margin:"0 0 16px", opacity:.85, fontSize:13, textAlign:"center" }}>Com gastos mensais estimados de <strong>{fmt(est)}</strong>:</p>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             {[["3 meses\n(mínimo)",est*3],["6 meses\n(ideal)",est*6]].map(([l,v])=>(
@@ -1225,11 +1267,9 @@ function MetasTab({ goals, active, mExp, month, year }) {
         </div>
       )}
       <Card>
-        <STitle>🎯 Nova Meta</STitle>
+        <STitle>Nova Meta</STitle>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
-          <div style={{ gridColumn:"1/-1", display:"flex", gap:10 }}>
-            <Field label="Ícone"><Select value={form.icon} onChange={e=>setForm(p=>({...p,icon:e.target.value}))} style={{ width:65 }}>{GOAL_ICONS.map(i=><option key={i} value={i}>{i}</option>)}</Select></Field>
-            <div style={{ flex:1 }}><Field label="Nome da meta"><Input placeholder="Ex: Reserva de emergência, Viagem…" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field></div>
+          <div style={{ gridColumn:"1/-1" }}><Field label="Nome da meta"><Input placeholder="Ex: Reserva de emergência, Viagem…" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field></div>
           </div>
           <Field label="Valor alvo (R$)"><CurrencyInput value={form.target_amount} onChange={v=>setForm(p=>({...p,target_amount:v}))}/></Field>
           <Field label="Já guardaram (R$)"><CurrencyInput value={form.current_amount} onChange={v=>setForm(p=>({...p,current_amount:v}))}/></Field>
@@ -1238,7 +1278,7 @@ function MetasTab({ goals, active, mExp, month, year }) {
         <Btn onClick={add} style={{ width:"100%" }}>Criar Meta</Btn>
       </Card>
 
-      {goals.data.length===0?<Card><Empty msg="Nenhuma meta criada ainda. 🎯"/></Card>:goals.data.map(g=>{
+      {goals.data.length===0?<Card><Empty msg="Nenhuma meta criada ainda."/></Card>:goals.data.map(g=>{
         const cur=Number(g.current_amount)||0; const tgt=Number(g.target_amount)||1;
         const pct=Math.min(cur/tgt,1); const done=pct>=1;
         let daysLeft=null, dc=C.success;
@@ -1246,13 +1286,13 @@ function MetasTab({ goals, active, mExp, month, year }) {
         return <Card key={g.id} style={{ border:done?`2px solid ${C.success}`:`1.5px solid ${C.border}` }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              <span style={{ fontSize:30 }}>{g.icon}</span>
+              <span style={{ display:"flex", alignItems:"center", color:C.primary }}><IS w={28} h={28} sw={1.6}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></IS></span>
               <div>
-                <div style={{ fontWeight:900, fontSize:16 }}>{g.name} {done&&"✅"}</div>
-                {g.deadline&&<div style={{ fontSize:12, color:dc, fontWeight:600 }}>{daysLeft!==null&&(daysLeft>0?`${daysLeft} dias`:daysLeft===0?"Hoje!":"⚠️ Vencido")} — {new Date(g.deadline).toLocaleDateString("pt-BR")}</div>}
+                <div style={{ fontWeight:900, fontSize:16 }}>{g.name} {done&&<span style={{color:C.success,display:"inline-flex",verticalAlign:"middle",marginLeft:4}}>{UI.check}</span>}</div>
+                {g.deadline&&<div style={{ fontSize:12, color:dc, fontWeight:600 }}>{daysLeft!==null&&(daysLeft>0?`${daysLeft} dias`:daysLeft===0?"Hoje!":"Vencido")} — {new Date(g.deadline).toLocaleDateString("pt-BR")}</div>}
               </div>
             </div>
-            <button onClick={()=>{ if(confirm("Excluir meta?")) goals.remove(g.id); }} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer" }}>🗑️</button>
+            <button onClick={()=>{ if(confirm("Excluir meta?")) goals.remove(g.id); }} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:8 }}>
             <span>Guardado: <strong style={{ color:C.primary }}>{fmt(cur)}</strong></span>
@@ -1263,8 +1303,8 @@ function MetasTab({ goals, active, mExp, month, year }) {
           {!done&&<div style={{ fontSize:12, color:C.muted, marginTop:6 }}>Faltam {fmt(tgt-cur)}</div>}
           <div style={{ marginTop:12 }}>
             {depId===g.id
-              ? <div style={{ display:"flex", gap:8 }}><CurrencyInput value={dep} onChange={setDep} style={{ flex:1 }}/><Btn onClick={()=>deposit(g.id)}>💾 Salvar</Btn><Btn variant="ghost" onClick={()=>{setDepId(null);setDep("");}}>Cancelar</Btn></div>
-              : <Btn variant="ghost" onClick={()=>setDepId(g.id)} style={{ width:"100%" }}>➕ Registrar Depósito</Btn>
+              ? <div style={{ display:"flex", gap:8 }}><CurrencyInput value={dep} onChange={setDep} style={{ flex:1 }}/><Btn onClick={()=>deposit(g.id)}>Salvar</Btn><Btn variant="ghost" onClick={()=>{setDepId(null);setDep("");}}>Cancelar</Btn></div>
+              : <Btn variant="ghost" onClick={()=>setDepId(g.id)} style={{ width:"100%" }}>Registrar Depósito</Btn>
             }
           </div>
         </Card>;
@@ -1276,17 +1316,17 @@ function MetasTab({ goals, active, mExp, month, year }) {
 // ─── BILL ITEM (helper para ContasTab) ───────────────────────────────────────
 function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, billPay }) {
   const STATUS_CFG = {
-    pending:  { label:"⏳ Pendente",         color:"#d97706", bg:"#fffbeb" },
-    paid:     { label:"✅ Pago",             color:"#16a34a", bg:"#f0fdf4" },
-    paid_late:{ label:"⚠️ Pago com atraso", color:"#d97706", bg:"#fff7ed" },
+    pending:  { label:"Pendente",         color:"#d97706", bg:"#fffbeb" },
+    paid:     { label:"Pago",             color:"#16a34a", bg:"#f0fdf4" },
+    paid_late:{ label:"Pago com atraso", color:"#d97706", bg:"#fff7ed" },
   };
-  const SRC_ICON = { fixed_bill:"📋", credit_card:"💳", manual:"📄" };
+  const SRC_ICON = { fixed_bill:"Fixa", credit_card:"Cartão", manual:"Avulsa" };
   const st  = STATUS_CFG[b.status] || STATUS_CFG.pending;
   const isM = marking?.id === b.id;
   return (
     <div style={{ border:`1.5px solid ${b.status!=="pending"?"#e2e8f0":"#e2e8f0"}`, background:st.bg, borderRadius:14, padding:"12px 14px" }}>
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <span style={{ fontSize:20, minWidth:26 }}>{SRC_ICON[b.source_type]||"📄"}</span>
+        <span style={{ fontSize:11, fontWeight:700, color:C.sub, background:C.pLight, borderRadius:6, padding:"2px 5px", flexShrink:0 }}>{SRC_ICON[b.source_type]||"···"}</span>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:700, fontSize:14 }}>{b.name}</div>
           <div style={{ fontSize:11, color:"#64748b", marginTop:1 }}>
@@ -1301,15 +1341,15 @@ function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, 
       </div>
       {b.status==="pending"&&!isM&&(
         <div style={{ display:"flex", gap:8, marginTop:10 }}>
-          <Btn onClick={()=>setMarking({id:b.id,mode:"paid"})} style={{ flex:1, padding:"8px 0", fontSize:13 }}>✅ Marcar pago</Btn>
-          <Btn onClick={()=>setMarking({id:b.id,mode:"paid_late"})} variant="ghost" style={{ flex:1, padding:"8px 0", fontSize:13, color:"#d97706", borderColor:"#d97706" }}>⚠️ Com atraso</Btn>
+          <Btn onClick={()=>setMarking({id:b.id,mode:"paid"})} style={{ flex:1, padding:"8px 0", fontSize:13 }}>Marcar pago</Btn>
+          <Btn onClick={()=>setMarking({id:b.id,mode:"paid_late"})} variant="ghost" style={{ flex:1, padding:"8px 0", fontSize:13, color:"#d97706", borderColor:"#d97706" }}>Com atraso</Btn>
         </div>
       )}
       {isM&&(
         <div style={{ marginTop:10, background:"rgba(255,255,255,.7)", borderRadius:10, padding:"12px 14px" }}>
           {marking.mode==="paid_late"&&<Field label="Juros pagos (R$)" span={2}><CurrencyInput value={interest} onChange={setInterest} placeholder="0,00" style={{ marginBottom:10 }}/></Field>}
           <div style={{ display:"flex", gap:8 }}>
-            <Btn onClick={confirmMark} style={{ flex:1, padding:"8px 0", fontSize:13 }}>{marking.mode==="paid"?"✅ Confirmar pago":"⚠️ Confirmar atraso"}</Btn>
+            <Btn onClick={confirmMark} style={{ flex:1, padding:"8px 0", fontSize:13 }}>{marking.mode==="paid"?"Confirmar pago":"Confirmar atraso"}</Btn>
             <Btn variant="ghost" onClick={()=>{setMarking(null);setInterest("");}} style={{ padding:"8px 14px", fontSize:13 }}>Cancelar</Btn>
           </div>
         </div>
@@ -1395,12 +1435,12 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
   };
 
   const STATUS_CONFIG = {
-    pending:  { label:"⏳ Pendente",         color:C.warn,    bg:"#fffbeb" },
-    paid:     { label:"✅ Pago",             color:C.success, bg:"#f0fdf4" },
-    paid_late:{ label:"⚠️ Pago com atraso", color:"#d97706", bg:"#fff7ed" },
+    pending:  { label:"Pendente",         color:C.warn,    bg:"#fffbeb" },
+    paid:     { label:"Pago",             color:C.success, bg:"#f0fdf4" },
+    paid_late:{ label:"Pago com atraso", color:"#d97706", bg:"#fff7ed" },
   };
 
-  const SOURCE_ICON = { fixed_bill:"📋", credit_card:"💳", manual:"📄" };
+  const SOURCE_ICON = { fixed_bill:"Fixa", credit_card:"Cartão", manual:"Avulsa" };
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
@@ -1408,26 +1448,26 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
       {/* Resumo do mês */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         <Card style={{ borderTop:`4px solid ${C.primary}`, padding:"14px 16px" }}>
-          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>💰 Total esperado</div>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Total esperado</div>
           <div style={{ fontSize:20, fontWeight:900, color:C.primary }}>{fmt(totalEsperado)}</div>
         </Card>
         <Card style={{ borderTop:`4px solid ${C.success}`, padding:"14px 16px" }}>
-          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>✅ Já pago</div>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Já pago</div>
           <div style={{ fontSize:20, fontWeight:900, color:C.success }}>{fmt(totalPago)}</div>
         </Card>
         <Card style={{ borderTop:`4px solid ${C.warn}`, padding:"14px 16px" }}>
-          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>⏳ Pendente</div>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Pendente</div>
           <div style={{ fontSize:20, fontWeight:900, color:C.warn }}>{fmt(totalPendente)}</div>
         </Card>
         <Card style={{ borderTop:`4px solid ${C.danger}`, padding:"14px 16px" }}>
-          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>💸 Juros pagos</div>
+          <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>Juros pagos</div>
           <div style={{ fontSize:20, fontWeight:900, color:totalJuros > 0 ? C.danger : C.muted }}>{fmt(totalJuros)}</div>
         </Card>
       </div>
 
       {/* Lista de contas — agrupada por urgência */}
       <Card>
-        <STitle>📅 {MONTHS_FULL[month]} {year} ({activeBills.length} contas)</STitle>
+        <STitle>{MONTHS_FULL[month]} {year} ({activeBills.length} contas)</STitle>
         {activeBills.length === 0
           ? <Empty msg="Carregando contas… abra a aba novamente se demorar." />
           : (
@@ -1436,7 +1476,7 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
               {/* Urgente — vence em até 3 dias */}
               {urgent.length>0&&(
                 <>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.danger, textTransform:"uppercase", letterSpacing:".06em", marginTop:4 }}>🔴 Urgente — vence em até 3 dias</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.danger, textTransform:"uppercase", letterSpacing:".06em", marginTop:4 }}>Urgente — vence em até 3 dias</div>
                   {urgent.map(b => <BillItem key={b.id} b={b} marking={marking} setMarking={setMarking} interest={interest} setInterest={setInterest} confirmMark={confirmMark} billPay={billPay}/>)}
                 </>
               )}
@@ -1444,7 +1484,7 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
               {/* Mais tarde */}
               {later.length>0&&(
                 <>
-                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:".06em", marginTop:urgent.length>0?8:4 }}>🟡 Mais tarde</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:"uppercase", letterSpacing:".06em", marginTop:urgent.length>0?8:4 }}>Mais tarde</div>
                   {later.map(b => <BillItem key={b.id} b={b} marking={marking} setMarking={setMarking} interest={interest} setInterest={setInterest} confirmMark={confirmMark} billPay={billPay}/>)}
                 </>
               )}
@@ -1461,7 +1501,7 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
 
       {/* Adicionar conta avulsa */}
       <Card>
-        <STitle>➕ Adicionar Conta Avulsa</STitle>
+        <STitle>Adicionar Conta Avulsa</STitle>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Field label="Nome da conta" span={2}>
             <Input placeholder="Ex: Conta de água, Boleto..." value={newName} onChange={e=>setNewName(e.target.value)} />
@@ -1481,9 +1521,9 @@ function ContasTab({ billPay, bills, cards, txs, month, year, mTxs, mInst }) {
 
 // ─── DÍVIDAS ─────────────────────────────────────────────────────────────────
 const DEBT_TYPES = {
-  credit_card: { icon:"💳", label:"Cartão Rotativo" },
-  loan:        { icon:"💰", label:"Empréstimo"      },
-  financing:   { icon:"🚗", label:"Financiamento"   },
+  credit_card: { label:"Cartão Rotativo" },
+  loan:        { label:"Empréstimo"      },
+  financing:   { label:"Financiamento"   },
 };
 const AMORT_TYPES = {
   price:     "Price (parcela fixa)",
@@ -1576,10 +1616,10 @@ function DiviTab({ debtHook, memberA, memberB }) {
       {/* Resumo */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
         {[
-          { icon:"📉", label:"Total em Dívidas", value:fmt(debtHook.totalBalance),   color:C.danger  },
-          { icon:"💸", label:"Juros Pagos",       value:fmt(debtHook.totalJurosPaid), color:C.warn    },
-          { icon:"📋", label:"Valor Original",    value:fmt(debtHook.totalOriginal),  color:C.muted   },
-          { icon:"✅", label:"Já Quitado",        value:fmt(debtHook.totalOriginal-debtHook.totalBalance), color:C.success },
+          { label:"Total em Dívidas", value:fmt(debtHook.totalBalance),   color:C.danger  },
+          { label:"Juros Pagos",       value:fmt(debtHook.totalJurosPaid), color:C.warn    },
+          { label:"Valor Original",    value:fmt(debtHook.totalOriginal),  color:C.muted   },
+          { label:"Já Quitado",        value:fmt(debtHook.totalOriginal-debtHook.totalBalance), color:C.success },
         ].map(({icon,label,value,color})=>(
           <Card key={label} style={{ borderTop:`4px solid ${color}`, padding:"14px 16px" }}>
             <div style={{ fontSize:11, color:C.sub, fontWeight:700, textTransform:"uppercase", marginBottom:4 }}>{icon} {label}</div>
@@ -1592,7 +1632,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
       {debtHook.totalOriginal>0&&(
         <Card>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, fontSize:13 }}>
-            <span style={{ fontWeight:700 }}>📊 Progresso de Quitação Geral</span>
+            <span style={{ fontWeight:700 }}>Progresso de Quitação Geral</span>
             <span style={{ color:C.success, fontWeight:800 }}>
               {((1-debtHook.totalBalance/debtHook.totalOriginal)*100).toFixed(1)}%
             </span>
@@ -1607,14 +1647,14 @@ function DiviTab({ debtHook, memberA, memberB }) {
 
       {/* Botão adicionar */}
       <Btn onClick={()=>setAdding(a=>!a)} style={{ width:"100%" }}>
-        {adding?"✕ Cancelar":"➕ Cadastrar Nova Dívida"}
+        {adding?"Cancelar":"Cadastrar Nova Dívida"}
       </Btn>
 
       {/* Formulário de nova dívida */}
       {adding&&(
         <Card style={{ border:`2px solid ${C.primary}` }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-            <STitle style={{ margin:0 }}>📉 Nova Dívida</STitle>
+            <STitle style={{ margin:0 }}>Nova Dívida</STitle>
             {/* Toggle Simples / Avançado */}
             <div style={{ display:"flex", background:"#f1f5f9", borderRadius:10, padding:3 }}>
               {[["Simples",false],["Avançado",true]].map(([label,val])=>(
@@ -1632,8 +1672,8 @@ function DiviTab({ debtHook, memberA, memberB }) {
           {/* Dica contextual */}
           <div style={{ fontSize:12, color:C.muted, background:"#f8fafc", borderRadius:10, padding:"10px 14px", marginBottom:14, lineHeight:1.6 }}>
             {advMode
-              ? "💡 Modo Avançado: informe a taxa de juros e o sistema de amortização para calcular a projeção completa."
-              : "💡 Modo Simples: informe apenas o valor da parcela mensal. Sem necessidade de saber juros ou tabela Price/SAC."}
+              ? "Modo Avançado: informe a taxa de juros e o sistema de amortização para calcular a projeção completa."
+              : "Modo Simples: informe apenas o valor da parcela mensal. Sem necessidade de saber juros ou tabela Price/SAC."}
           </div>
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
@@ -1641,7 +1681,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
             <Field label="Nome" span={2}><Input placeholder="Ex: Financiamento Carro, Empréstimo Caixa…" value={form.name} onChange={e=>f("name")(e.target.value)}/></Field>
             <Field label="Tipo">
               <Select value={form.debt_type} onChange={e=>f("debt_type")(e.target.value)}>
-                {Object.entries(DEBT_TYPES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+                {Object.entries(DEBT_TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
               </Select>
             </Field>
             <Field label="Credor"><Input placeholder="Ex: Banco do Brasil…" value={form.creditor} onChange={e=>f("creditor")(e.target.value)}/></Field>
@@ -1697,7 +1737,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
             </Field>
             <Field label="Observações" span={2}><Input placeholder="Opcional…" value={form.notes} onChange={e=>f("notes")(e.target.value)}/></Field>
           </div>
-          <Btn onClick={addDebt} disabled={!canSubmit} style={{ width:"100%", opacity:canSubmit?1:0.5 }}>💾 Cadastrar Dívida</Btn>
+          <Btn onClick={addDebt} disabled={!canSubmit} style={{ width:"100%", opacity:canSubmit?1:0.5 }}>Cadastrar Dívida</Btn>
         </Card>
       )}
 
@@ -1705,7 +1745,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
       {activeDebts.length>0&&(
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           {activeDebts.map(d=>{
-            const dt      = DEBT_TYPES[d.debt_type]||{icon:"💸",label:"Dívida"};
+            const dt      = DEBT_TYPES[d.debt_type]||{label:"Dívida"};
             const progress = Math.min((1-Number(d.current_balance)/Number(d.original_amount))*100,100);
             const next    = debtHook.nextPayment(d);
             const table   = expand===d.id ? generateAmortizationTable(d) : [];
@@ -1718,7 +1758,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
               <Card key={d.id} style={{ borderLeft:`5px solid ${C.danger}` }}>
                 {/* Header */}
                 <div style={{ display:"flex", alignItems:"flex-start", gap:10, marginBottom:12 }}>
-                  <span style={{ fontSize:24 }}>{dt.icon}</span>
+                  <span style={{ display:"flex", alignItems:"center", color:C.danger }}><IS w={22} h={22} sw={1.8}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></IS></span>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:900, fontSize:15 }}>{d.name}</div>
                     <div style={{ fontSize:11, color:C.muted }}>
@@ -1755,27 +1795,27 @@ function DiviTab({ debtHook, memberA, memberB }) {
 
                 {d.amortization_type!=="revolving"&&(
                   <div style={{ fontSize:11, color:C.muted, marginBottom:12 }}>
-                    📅 {d.paid_installments}/{d.total_installments} parcelas pagas · {remaining} restantes
+                    {d.paid_installments}/{d.total_installments} parcelas pagas · {remaining} restantes
                   </div>
                 )}
 
                 {/* Ações */}
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                   <Btn onClick={()=>{ setPaying(isPayingThis?null:d.id); setPayAmt(""); }} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
-                    {isPayingThis?"✕ Cancelar":"💳 Pagar parcela"}
+                    {isPayingThis?"Cancelar":"Pagar parcela"}
                   </Btn>
                   {d.amortization_type&&d.interest_rate&&(
                     <Btn variant="ghost" onClick={()=>setExpand(expand===d.id?null:d.id)} style={{ flex:1, padding:"9px 0", fontSize:13 }}>
-                      {expand===d.id?"▲ Fechar":"📊 Ver projeção"}
+                      {expand===d.id?"Fechar":"Ver projeção"}
                     </Btn>
                   )}
-                  <button onClick={()=>debtHook.debts.remove(d.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:10, width:38, height:38, cursor:"pointer" }}>🗑️</button>
+                  <button onClick={()=>debtHook.debts.remove(d.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:10, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                 </div>
 
                 {/* Formulário de pagamento inline */}
                 {isPayingThis&&(
                   <div style={{ marginTop:14, background:"#f0fdf4", borderRadius:12, padding:"14px 16px" }}>
-                    <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>💳 Pagamento deste mês</div>
+                    <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>Pagamento deste mês</div>
                     {d.amortization_type&&d.interest_rate ? (
                       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
                         {[["Juros",fmt(next.interest)],["Amortização",fmt(next.principal)],["Total",fmt(next.total)]].map(([l,v])=>(
@@ -1795,7 +1835,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
                       <CurrencyInput value={payAmt} onChange={setPayAmt} placeholder="Valor calculado automaticamente"/>
                     </Field>
                     <div style={{ marginTop:10 }}>
-                      <Btn onClick={()=>confirmPayment(d.id)} style={{ width:"100%" }}>✅ Confirmar Pagamento</Btn>
+                      <Btn onClick={()=>confirmPayment(d.id)} style={{ width:"100%" }}>Confirmar Pagamento</Btn>
                     </div>
                   </div>
                 )}
@@ -1803,7 +1843,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
                 {/* Tabela de amortização */}
                 {expand===d.id&&table.length>0&&(
                   <div style={{ marginTop:14 }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:C.sub, textTransform:"uppercase", marginBottom:8 }}>📊 Projeção de Amortização</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.sub, textTransform:"uppercase", marginBottom:8 }}>Projeção de Amortização</div>
                     <div style={{ overflowX:"auto" }}>
                       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                         <thead>
@@ -1828,7 +1868,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
                     </div>
                     {table.length>6&&(
                       <button onClick={()=>setShowAll(p=>({...p,[d.id]:!p[d.id]}))} style={{ background:"none", border:"none", color:C.primary, fontSize:12, cursor:"pointer", marginTop:8, fontWeight:700 }}>
-                        {showFull?`▲ Mostrar menos`:`▼ Ver todas as ${table.length} parcelas`}
+                        {showFull?"Mostrar menos":`Ver todas as ${table.length} parcelas`}
                       </button>
                     )}
                   </div>
@@ -1839,15 +1879,15 @@ function DiviTab({ debtHook, memberA, memberB }) {
         </div>
       )}
 
-      {activeDebts.length===0&&<Card><Empty msg="Nenhuma dívida ativa. Cadastre acima 👆"/></Card>}
+      {activeDebts.length===0&&<Card><Empty msg="Nenhuma dívida ativa."/></Card>}
 
       {/* Dívidas quitadas */}
       {inactiveDebts.length>0&&(
         <Card>
-          <STitle>✅ Dívidas Quitadas ({inactiveDebts.length})</STitle>
+          <STitle>Dívidas Quitadas ({inactiveDebts.length})</STitle>
           {inactiveDebts.map(d=>(
             <div key={d.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
-              <span>{DEBT_TYPES[d.debt_type]?.icon||"💸"}</span>
+              <Badge color={C.muted}>{DEBT_TYPES[d.debt_type]?.label||"Dívida"}</Badge>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:700, fontSize:13 }}>{d.name}</div>
                 <div style={{ fontSize:11, color:C.muted }}>{d.creditor}</div>
@@ -1934,7 +1974,7 @@ function ConfigTab({ household, members, supabase, householdId }) {
 
       {/* ── Meu Perfil ── */}
       <Card>
-        <STitle>👤 Meu Perfil</STitle>
+        <STitle>Meu Perfil</STitle>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
           <div>
             <div style={{ fontSize:12, color:C.sub, marginBottom:2 }}>Seu nome no app</div>
@@ -1953,8 +1993,8 @@ function ConfigTab({ household, members, supabase, householdId }) {
           </div>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             {!editingName ? (
-              <button onClick={()=>{ setNewName(myName); setEditingName(true); }} style={{ background:C.pLight, border:"none", borderRadius:10, padding:"8px 14px", fontSize:13, fontWeight:700, color:C.primary, cursor:"pointer", fontFamily:"inherit" }}>
-                ✏️ Editar
+              <button onClick={()=>{ setNewName(myName); setEditingName(true); }} style={{ background:C.pLight, border:"none", borderRadius:10, padding:"8px 14px", fontSize:13, fontWeight:700, color:C.primary, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:6 }}>
+                {UI.edit} Editar
               </button>
             ) : (
               <>
@@ -1968,11 +2008,11 @@ function ConfigTab({ household, members, supabase, householdId }) {
             )}
           </div>
         </div>
-        {nameSaved && <div style={{ marginTop:10, color:C.success, fontSize:13, fontWeight:600 }}>✅ Nome atualizado com sucesso!</div>}
+        {nameSaved && <div style={{ marginTop:10, color:C.success, fontSize:13, fontWeight:600 }}>Nome atualizado com sucesso!</div>}
       </Card>
 
       <Card>
-        <STitle>🏠 Sua Casa</STitle>
+        <STitle>Sua Casa</STitle>
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ fontSize:13, color:C.sub }}>Nome</div>
           <div style={{ fontWeight:800, fontSize:18, color:C.text }}>{household?.name}</div>
@@ -1981,7 +2021,7 @@ function ConfigTab({ household, members, supabase, householdId }) {
 
         {/* Modo de divisão */}
         <div style={{ marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:8 }}>⚖️ Modo de divisão</div>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:8 }}>Modo de divisão</div>
           <div style={{ display:"flex", background:"#f1f5f9", borderRadius:12, padding:4, marginBottom:8 }}>
             {[["split","Split Individual","Despesas divididas entre membros"],["joint","Modo Conjunto","Casa como unidade financeira única"]].map(([m,l,desc])=>(
               <button key={m} onClick={async()=>{ await supabase.from("households").update({mode:m}).eq("id",householdId); window.location.reload(); }} style={{
@@ -1995,8 +2035,8 @@ function ConfigTab({ household, members, supabase, householdId }) {
           </div>
           <div style={{ fontSize:11, color:C.muted, lineHeight:1.6 }}>
             {household?.mode==="joint"
-              ? "🏠 Modo Conjunto ativo — receitas e despesas são da casa como um todo, sem divisão individual."
-              : "👥 Split Individual ativo — cada membro tem sua parte calculada separadamente."}
+              ? "Modo Conjunto ativo — receitas e despesas são da casa como um todo, sem divisão individual."
+              : "Split Individual ativo — cada membro tem sua parte calculada separadamente."}
           </div>
         </div>
         <hr style={{ border:"none", borderTop:`1px solid ${C.border}`, margin:"0 0 16px" }}/>
@@ -2015,16 +2055,16 @@ function ConfigTab({ household, members, supabase, householdId }) {
 
       {members.length < 2 && household && (
         <Card style={{ border:`2px dashed ${C.primary}` }}>
-          <STitle>🔗 Código de Convite</STitle>
+          <STitle>Código de Convite</STitle>
           <p style={{ margin:"0 0 14px", fontSize:13, color:C.sub }}>Compartilhe este código com seu parceiro para que ele entre na sua casa:</p>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
             <div style={{ flex:1, background:C.pLight, borderRadius:12, padding:"14px 18px", fontFamily:"monospace", fontSize:24, fontWeight:900, color:C.primary, letterSpacing:".15em", textAlign:"center" }}>{household.invite_code}</div>
-            <Btn onClick={copy} style={{ padding:"14px 18px" }}>{copied?"✅ Copiado!":"📋 Copiar"}</Btn>
+            <Btn onClick={copy} style={{ padding:"14px 18px" }}>{copied?"Copiado!":"Copiar código"}</Btn>
           </div>
 
           {/* Enviar convite por email */}
           <div style={{ marginTop:16, padding:"14px 16px", background:"#f8fafc", borderRadius:14, border:`1.5px solid ${C.border}` }}>
-            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:10 }}>📧 Enviar convite por email</div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text, marginBottom:10 }}>Enviar convite por email</div>
             <div style={{ display:"flex", gap:8 }}>
               <input
                 type="email"
@@ -2037,7 +2077,7 @@ function ConfigTab({ household, members, supabase, householdId }) {
                 {sending?"Enviando…":"Enviar"}
               </Btn>
             </div>
-            {inviteSent&&<div style={{ marginTop:8, color:C.success, fontSize:13, fontWeight:600 }}>✅ Convite enviado com sucesso!</div>}
+            {inviteSent&&<div style={{ marginTop:8, color:C.success, fontSize:13, fontWeight:600 }}>Convite enviado com sucesso!</div>}
           </div>
 
           <button onClick={regenerate} style={{ background:"none", border:"none", color:C.muted, fontSize:12, cursor:"pointer", marginTop:10, textDecoration:"underline" }}>Gerar novo código</button>
