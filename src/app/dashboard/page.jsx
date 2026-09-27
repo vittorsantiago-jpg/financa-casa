@@ -184,6 +184,39 @@ function ProgressBar({ value, max, color=C.primary, height=8 }) {
 function Empty({ msg }) { return <p style={{ color:C.muted, textAlign:"center", padding:"28px 0", margin:0, fontSize:14 }}>{msg}</p>; }
 function Badge({ children, color=C.primary }) { return <span style={{ fontSize:11, fontWeight:700, background:`${color}22`, color, borderRadius:20, padding:"3px 10px" }}>{children}</span>; }
 
+// ─── CONFIRM DIALOG ───────────────────────────────────────────────────────────
+function ConfirmDialog({ msg, detail, onOk, onCancel }) {
+  return (
+    <div onClick={onCancel}
+      style={{ position:"fixed", inset:0, background:"rgba(15,15,30,.5)", zIndex:1000,
+               display:"flex", alignItems:"center", justifyContent:"center", padding:"0 20px" }}>
+      <div onClick={e=>e.stopPropagation()}
+        style={{ background:C.card, borderRadius:20, padding:"28px 24px", maxWidth:320, width:"100%",
+                 boxShadow:"0 24px 64px rgba(0,0,0,.22)", textAlign:"center" }}>
+        <div style={{ width:52, height:52, borderRadius:"50%", background:C.dLight,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      margin:"0 auto 14px", color:C.danger, fontSize:22 }}>{UI.trash}</div>
+        <div style={{ fontSize:16, fontWeight:800, color:C.text, marginBottom:6 }}>Confirmar exclusão</div>
+        <div style={{ fontSize:13, color:C.sub, marginBottom: detail ? 4 : 22 }}>{msg}</div>
+        {detail && <div style={{ fontSize:11, color:C.muted, marginBottom:22 }}>{detail}</div>}
+        <div style={{ display:"flex", gap:10 }}>
+          <Btn variant="ghost" onClick={onCancel} style={{ flex:1 }}>Cancelar</Btn>
+          <Btn onClick={onOk} style={{ flex:1, background:C.danger, borderColor:C.danger }}>Excluir</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+function useConfirm() {
+  const [state, setState] = useState({ open:false, msg:"", detail:"", onOk:null });
+  const ask = (msg, onOk, detail="") => setState({ open:true, msg, detail, onOk });
+  const close = () => setState(s => ({ ...s, open:false }));
+  const dialog = state.open
+    ? <ConfirmDialog msg={state.msg} detail={state.detail} onOk={()=>{ state.onOk?.(); close(); }} onCancel={close}/>
+    : null;
+  return [dialog, ask];
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const router   = useRouter();
@@ -660,6 +693,7 @@ function MemberIncomeSection({ member, income, month, year }) {
   const [marking,  setMarking] = useState(null);
   const [markAmt,  setMarkAmt] = useState("");
   const [markDate, setMarkDate]= useState(today());
+  const [confirmEl, askConfirm] = useConfirm();
 
   const mInc    = income.data.filter(s=>s.member_name===member&&s.month===month&&s.year===year);
   const cltList = mInc.filter(s=>s.source_type==="clt");
@@ -782,7 +816,7 @@ function MemberIncomeSection({ member, income, month, year }) {
                     {isCLT&&!recv&&(
                       <Btn onClick={()=>{ setMarking(s.id); setMarkAmt(String(s.expected_amount||"")); }} style={{ fontSize:11, padding:"5px 10px" }}>✓ Confirmar</Btn>
                     )}
-                    <button onClick={()=>income.remove(s.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+                    <button onClick={()=>askConfirm(`Excluir receita "${s.name||s.income_type}"?`, ()=>income.remove(s.id))} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                   </div>
                 </div>
                 {isM&&(
@@ -800,6 +834,7 @@ function MemberIncomeSection({ member, income, month, year }) {
       )}
       {mInc.length===0&&<Empty msg={`Nenhuma entrada de renda para ${member} neste mês.`}/>}
     </Card>
+    {confirmEl}
   );
 }
 
@@ -817,6 +852,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
   const blank = { name:"", category:"moradia", amount:"", split_type:"half", split_member:"", due_day:"" };
   const [form, setForm] = useState(blank);
   const [editing, setEd] = useState(null);
+  const [confirmEl, askConfirm] = useConfirm();
   const f = k => v => setForm(p=>({...p,[k]:v}));
 
   const save = async () => {
@@ -828,7 +864,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
   };
 
   const toggle = id => { const b=bills.data.find(x=>x.id===id); bills.update(id,{active:!b.active}); };
-  const del    = async id => { if(confirm("Excluir?")) await bills.remove(id); };
+  const del    = (id, name) => askConfirm(`Excluir "${name}"?`, ()=>bills.remove(id), "Esta conta fixa será removida permanentemente.");
   const edit   = b => { setForm({name:b.name,category:b.category,amount:String(b.amount),split_type:b.split_type,split_member:b.split_member||"",due_day:String(b.due_day||"")}); setEd(b.id); };
 
   let tCasa=0, tA=0, tB=0;
@@ -908,7 +944,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
                   <div style={{ display:"flex", gap:6, flexShrink:0 }}>
                     <button onClick={()=>toggle(b.id)} title={off?"Ativar":"Pausar"} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{off?UI.play:UI.pause}</button>
                     <button onClick={()=>edit(b)} style={{ background:"none", border:`1.5px solid ${C.border}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.edit}</button>
-                    <button onClick={()=>del(b.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+                    <button onClick={()=>del(b.id, b.name)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:34, height:34, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                   </div>
                 </div>
               </div>;
@@ -917,6 +953,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
         )}
       </Card>
     </div>
+    {confirmEl}
   );
 }
 
@@ -924,6 +961,7 @@ function FixasTab({ bills, memberA, memberB, sh }) {
 function LancTab({ exps, memberA, memberB, month, year, mExp }) {
   const blank = { description:"", category:"mercado", amount:"", pay_method:"debit", split_type:"half", split_member:"", expense_date:today() };
   const [form, setForm] = useState(blank);
+  const [confirmEl, askConfirm] = useConfirm();
   const f = k => v => setForm(p=>({...p,[k]:v}));
 
   const add = async () => {
@@ -979,13 +1017,14 @@ function LancTab({ exps, memberA, memberB, month, year, mExp }) {
                   <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{e.expense_date} · {e.split_type==="half"?"50/50":`${e.split_member} paga`}</div>
                 </div>
                 <div style={{ fontWeight:800, color:isT?C.muted:C.text, minWidth:85, textAlign:"right" }}>{fmt(e.amount)}</div>
-                <button onClick={()=>exps.remove(e.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+                <button onClick={()=>askConfirm(`Excluir "${e.description}"?`, ()=>exps.remove(e.id))} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
               </div>;
             })}
           </div>
         )}
       </Card>
     </div>
+    {confirmEl}
   );
 }
 
@@ -1001,12 +1040,13 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
   const [expandCard, setExpandCard] = useState({});         // { [cardId]: bool }
   const [expandFatura, setExpandFatura] = useState({});     // { [cardId]: bool }
   const [showInstall, setShowInstall] = useState(false);    // parcelamentos colapsável
+  const [confirmEl, askConfirm] = useConfirm();
 
   const toggleCard   = id => setExpandCard(p=>({...p,[id]:!p[id]}));
   const toggleFatura = id => setExpandFatura(p=>({...p,[id]:!p[id]}));
 
   const addCard = async () => { if(!cForm.name)return; await cards.insert({...cForm,card_limit:cForm.card_limit?Number(cForm.card_limit):null,closing_day:cForm.closing_day?Number(cForm.closing_day):null,due_day:cForm.due_day?Number(cForm.due_day):null}); setCF(blankC); setAdding(null); };
-  const delCard = async id => { if(!confirm("Excluir cartão e transações?"))return; await cards.remove(id); txs.data.filter(t=>t.card_id===id).forEach(t=>txs.remove(t.id)); };
+  const delCard = (id, name) => askConfirm(`Excluir cartão "${name}"?`, async ()=>{ await cards.remove(id); txs.data.filter(t=>t.card_id===id).forEach(t=>txs.remove(t.id)); }, "Todas as transações vinculadas serão removidas.");
   const addTx   = async () => { if(!tForm.card_id||!tForm.description||!tForm.amount)return; await txs.insert({...tForm,amount:Number(tForm.amount),month,year}); setTF(p=>({...p,description:"",amount:""})); setAdding(null); };
   const addPlan = async () => {
     if (!pForm.card_id||!pForm.description||!pForm.total_installments||!pForm.firstAmount) return;
@@ -1052,7 +1092,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                 <div onClick={()=>toggleCard(c.id)} style={{ padding:"11px 12px", cursor:"pointer" }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:2 }}>
                     <div style={{ fontWeight:800, fontSize:12, color:C.text, lineHeight:1.3 }}>{c.name}</div>
-                    <button onClick={e=>{e.stopPropagation();delCard(c.id);}} style={{ background:"none", border:"none", cursor:"pointer", color:C.muted, padding:0, lineHeight:1, display:"flex", alignItems:"center" }}>{UI.trash}</button>
+                    <button onClick={e=>{e.stopPropagation();delCard(c.id,c.name);}} style={{ background:"none", border:"none", cursor:"pointer", color:C.muted, padding:0, lineHeight:1, display:"flex", alignItems:"center" }}>{UI.trash}</button>
                   </div>
                   <div style={{ fontSize:11, color:C.muted, marginBottom:6 }}>{c.bank} · {c.owner==="both"?"Ambos":c.owner}</div>
                   <div style={{ fontWeight:900, fontSize:15, color:uc, marginBottom:4 }}>{fmt(spent)}</div>
@@ -1163,7 +1203,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                           <div style={{ fontSize:11, color:C.muted }}>{t.transaction_date} · {t.split_type==="half"?"50/50":`${t.split_member} paga`}</div>
                         </div>
                         <div style={{ fontWeight:800, fontSize:14 }}>{fmt(t.amount)}</div>
-                        <button onClick={()=>txs.remove(t.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+                        <button onClick={()=>askConfirm(`Excluir "${t.description}"?`, ()=>txs.remove(t.id))} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                       </div>;
                     })}
                     {inst_c.map(i=>{
@@ -1213,7 +1253,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                     </div>
                     <ProgressBar value={paid_c} max={p.total_installments} color={C.primary} height={5}/>
                   </div>
-                  <button onClick={()=>{if(confirm(`Cancelar "${p.description}"? Remove as parcelas futuras.`)) instHook.cancelPlan(p.id);}} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+                  <button onClick={()=>askConfirm(`Cancelar parcelamento "${p.description}"?`, ()=>instHook.cancelPlan(p.id), "As parcelas futuras serão removidas.")} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                 </div>
               );
             })}
@@ -1224,6 +1264,7 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
 
       {cards.data.length===0&&<Card><Empty msg="Nenhum cartão cadastrado."/></Card>}
     </div>
+    {confirmEl}
   );
 }
 
@@ -1233,6 +1274,7 @@ function MetasTab({ goals, active, mExp, month, year }) {
   const [form, setForm]   = useState(blank);
   const [depId, setDepId] = useState(null);
   const [dep,   setDep]   = useState("");
+  const [confirmEl, askConfirm] = useConfirm();
 
   const fixedT = active.reduce((a,b)=>a+Number(b.amount),0);
   const varT   = mExp.filter(e=>e.pay_method!=="ticket").reduce((a,e)=>a+Number(e.amount),0);
@@ -1292,7 +1334,7 @@ function MetasTab({ goals, active, mExp, month, year }) {
                 {g.deadline&&<div style={{ fontSize:12, color:dc, fontWeight:600 }}>{daysLeft!==null&&(daysLeft>0?`${daysLeft} dias`:daysLeft===0?"Hoje!":"Vencido")} — {new Date(g.deadline).toLocaleDateString("pt-BR")}</div>}
               </div>
             </div>
-            <button onClick={()=>{ if(confirm("Excluir meta?")) goals.remove(g.id); }} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+            <button onClick={()=>askConfirm(`Excluir meta "${g.name}"?`, ()=>goals.remove(g.id))} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:8, width:30, height:30, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:8 }}>
             <span>Guardado: <strong style={{ color:C.primary }}>{fmt(cur)}</strong></span>
@@ -1310,11 +1352,13 @@ function MetasTab({ goals, active, mExp, month, year }) {
         </Card>;
       })}
     </div>
+    {confirmEl}
   );
 }
 
 // ─── BILL ITEM (helper para ContasTab) ───────────────────────────────────────
 function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, billPay, dayNow }) {
+  const [confirmEl, askConfirm] = useConfirm();
   const STATUS_CFG = {
     pending:  { label:"Pendente",        color:"#d97706", bg:"#fffbeb" },
     paid:     { label:"Pago",            color:"#16a34a", bg:"#f0fdf4" },
@@ -1370,7 +1414,8 @@ function BillItem({ b, marking, setMarking, interest, setInterest, confirmMark, 
         </div>
       )}
       {b.status!=="pending"&&<button onClick={()=>billPay.markPending(b.id)} style={{ background:"none", border:"none", color:"#94a3b8", fontSize:11, cursor:"pointer", marginTop:6, textDecoration:"underline", fontFamily:"inherit" }}>Desfazer pagamento</button>}
-      {b.source_type==="manual"&&<button onClick={()=>billPay.remove(b.id)} style={{ background:"none", border:"none", color:"#94a3b8", fontSize:11, cursor:"pointer", marginTop:4, textDecoration:"underline", fontFamily:"inherit", display:"block" }}>Remover</button>}
+      {b.source_type==="manual"&&<button onClick={()=>askConfirm(`Remover "${b.name}"?`, ()=>billPay.remove(b.id))} style={{ background:"none", border:"none", color:"#94a3b8", fontSize:11, cursor:"pointer", marginTop:4, textDecoration:"underline", fontFamily:"inherit", display:"block" }}>Remover</button>}
+      {confirmEl}
     </div>
   );
 }
@@ -1577,6 +1622,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
   const [paying,  setPaying]  = useState(null);
   const [payAmt,  setPayAmt]  = useState("");
   const [showAll, setShowAll] = useState({});
+  const [confirmEl, askConfirm] = useConfirm();
 
   const f = k => v => setForm(p=>({...p,[k]:v}));
 
@@ -1839,7 +1885,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
                       {expand===d.id?"Fechar":"Ver projeção"}
                     </Btn>
                   )}
-                  <button onClick={()=>debtHook.debts.remove(d.id)} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:10, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
+                  <button onClick={()=>askConfirm(`Excluir dívida "${d.name}"?`, ()=>debtHook.debts.remove(d.id), "Histórico de pagamentos também será removido.")} style={{ background:"none", border:`1.5px solid ${C.dLight}`, borderRadius:10, width:38, height:38, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>{UI.trash}</button>
                 </div>
 
                 {/* Formulário de pagamento inline */}
@@ -1928,6 +1974,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
         </Card>
       )}
     </div>
+    {confirmEl}
   );
 }
 
@@ -1941,6 +1988,7 @@ function ConfigTab({ household, members, supabase, householdId }) {
   const [userId,      setUserId]   = useState(null);
   const [editingName, setEditingName] = useState(false);
   const [newName,     setNewName]  = useState("");
+  const [confirmEl, askConfirm] = useConfirm();
   const [savingName,  setSavingName] = useState(false);
   const [nameSaved,   setNameSaved]  = useState(false);
 
@@ -1972,12 +2020,15 @@ function ConfigTab({ household, members, supabase, householdId }) {
 
   const copy = () => { navigator.clipboard.writeText(household?.invite_code||""); setCopied(true); setTimeout(()=>setCopied(false),2000); };
 
-  const regenerate = async () => {
-    if (!confirm("Gerar novo código invalida o atual. Continuar?")) return;
-    const newCode = Math.random().toString(36).slice(2,10).toUpperCase();
-    await supabase.from("households").update({ invite_code: newCode }).eq("id", householdId);
-    window.location.reload();
-  };
+  const regenerate = () => askConfirm(
+    "Gerar novo código de convite?",
+    async () => {
+      const newCode = Math.random().toString(36).slice(2,10).toUpperCase();
+      await supabase.from("households").update({ invite_code: newCode }).eq("id", householdId);
+      window.location.reload();
+    },
+    "O código atual será invalidado imediatamente."
+  );
 
   const sendInviteEmail = async () => {
     if (!inviteEmail || !household?.invite_code) return;
@@ -2114,5 +2165,6 @@ function ConfigTab({ household, members, supabase, householdId }) {
         </Card>
       )}
     </div>
+    {confirmEl}
   );
 }
