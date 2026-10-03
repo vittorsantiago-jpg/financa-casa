@@ -1683,13 +1683,15 @@ function DiviTab({ debtHook, memberA, memberB }) {
     // avançado
     interest_rate:"", rate_type:"monthly", amortization_type:"price",
   };
-  const [form,    setForm]    = useState(blank);
-  const [advMode, setAdvMode] = useState(false);  // toggle Simples / Avançado
-  const [adding,  setAdding]  = useState(false);
-  const [expand,  setExpand]  = useState(null);
-  const [paying,  setPaying]  = useState(null);
-  const [payAmt,  setPayAmt]  = useState("");
-  const [showAll, setShowAll] = useState({});
+  const [form,        setForm]       = useState(blank);
+  const [advMode,     setAdvMode]    = useState(false);  // toggle Simples / Avançado
+  const [adding,      setAdding]     = useState(false);
+  const [expand,      setExpand]     = useState(null);
+  const [paying,      setPaying]     = useState(null);
+  const [payAmt,      setPayAmt]     = useState("");
+  const [showAll,     setShowAll]    = useState({});
+  const [submitError, setSubmitError]= useState(null);
+  const [saving,      setSaving]     = useState(false);
   const [confirmEl, askConfirm] = useConfirm();
 
   const f = k => v => setForm(p=>({...p,[k]:v}));
@@ -1699,7 +1701,9 @@ function DiviTab({ debtHook, memberA, memberB }) {
     : form.name && form.original_amount && form.current_balance && form.monthly_payment;
 
   const addDebt = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || saving) return;
+    setSubmitError(null);
+    setSaving(true);
 
     let pmt, interest_rate, rate_type, amortization_type, total_installments;
 
@@ -1724,7 +1728,7 @@ function DiviTab({ debtHook, memberA, memberB }) {
       total_installments = Number(form.total_installments) || null;
     }
 
-    await debtHook.debts.insert({
+    const { error } = await debtHook.debts.insert({
       name:              form.name,
       debt_type:         form.debt_type,
       creditor:          form.creditor,
@@ -1742,6 +1746,8 @@ function DiviTab({ debtHook, memberA, memberB }) {
       amortization_type,
       active:            true,
     });
+    setSaving(false);
+    if (error) { setSubmitError(error.message || "Erro ao salvar dívida"); return; }
     setForm(blank); setAdding(false);
   };
 
@@ -1881,7 +1887,14 @@ function DiviTab({ debtHook, memberA, memberB }) {
             </Field>
             <Field label="Observações" span={2}><Input placeholder="Opcional…" value={form.notes} onChange={e=>f("notes")(e.target.value)}/></Field>
           </div>
-          <Btn onClick={addDebt} disabled={!canSubmit} style={{ width:"100%", opacity:canSubmit?1:0.5 }}>Cadastrar Dívida</Btn>
+          {submitError&&(
+            <div style={{ background:"#fef2f2", border:"1.5px solid #fca5a5", borderRadius:10, padding:"10px 14px", marginBottom:12, color:"#dc2626", fontSize:13, fontWeight:600 }}>
+              ⚠️ Erro ao salvar: {submitError}
+            </div>
+          )}
+          <Btn onClick={addDebt} disabled={!canSubmit||saving} style={{ width:"100%", opacity:(canSubmit&&!saving)?1:0.5 }}>
+            {saving?"Salvando…":"Cadastrar Dívida"}
+          </Btn>
         </Card>
       )}
 
