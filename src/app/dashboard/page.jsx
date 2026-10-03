@@ -1020,8 +1020,8 @@ function FixasTab({ bills, memberA, memberB, sh }) {
           </div>
         )}
       </Card>
+      {confirmEl}
     </div>
-    {confirmEl}
   );
 }
 
@@ -1091,8 +1091,8 @@ function LancTab({ exps, memberA, memberB, month, year, mExp }) {
           </div>
         )}
       </Card>
+      {confirmEl}
     </div>
-    {confirmEl}
   );
 }
 
@@ -1331,8 +1331,8 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
       )}
 
       {cards.data.length===0&&<Card><Empty msg="Nenhum cartão cadastrado."/></Card>}
+      {confirmEl}
     </div>
-    {confirmEl}
   );
 }
 
@@ -1419,8 +1419,8 @@ function MetasTab({ goals, active, mExp, month, year }) {
           </div>
         </Card>;
       })}
+      {confirmEl}
     </div>
-    {confirmEl}
   );
 }
 
@@ -2041,8 +2041,8 @@ function DiviTab({ debtHook, memberA, memberB }) {
           ))}
         </Card>
       )}
+      {confirmEl}
     </div>
-    {confirmEl}
   );
 }
 
@@ -2232,7 +2232,7 @@ function ConfigTab({ household, members, supabase, householdId }) {
           <button onClick={regenerate} style={{ background:"none", border:"none", color:C.muted, fontSize:12, cursor:"pointer", marginTop:10, textDecoration:"underline" }}>Gerar novo código</button>
         </Card>
       )}
+      {confirmEl}
     </div>
-    {confirmEl}
   );
 }
