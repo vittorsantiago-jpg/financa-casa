@@ -243,8 +243,12 @@ export default function Dashboard() {
   }, []);
 
   const { household, members } = useHousehold(householdId);
-  const memberA = members[0]?.display_name || "Membro A";
-  const memberB = members[1]?.display_name || "Membro B";
+
+  // Coloca o usuário logado sempre como "memberA" (exibido primeiro)
+  const me      = members.find(m => m.user_id === userId);
+  const partner = members.find(m => m.user_id !== userId);
+  const memberA = me?.display_name      || members[0]?.display_name || "Membro A";
+  const memberB = partner?.display_name || members[1]?.display_name || "Membro B";
 
   const bills   = useFixedBills(householdId);
   const exps    = useExpenses(householdId);
@@ -344,7 +348,7 @@ export default function Dashboard() {
         open={drawerOpen} onClose={()=>setDrawerOpen(false)}
         tab={tab} setTab={setTab} tabs={TABS}
         household={household} memberA={memberA} memberB={memberB}
-        onLogout={logout}
+        me={me} onLogout={logout}
       />
 
       {/* ── HEADER ── */}
@@ -388,7 +392,7 @@ export default function Dashboard() {
 }
 
 // ─── SIDE DRAWER NAVIGATION ──────────────────────────────────────────────────
-function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, memberB, onLogout }) {
+function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, memberB, onLogout, me }) {
   const go = (id) => { setTab(id); onClose(); };
   return (
     <>
@@ -409,15 +413,23 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
         {/* Cabeçalho do drawer */}
         <div style={{ background:C.header, padding:"20px 18px 16px", color:"#fff" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <div style={{ height:40, padding:"0 12px", borderRadius:20, background:"rgba(255,255,255,.18)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:14, letterSpacing:1, gap:1 }}>
-              <span>{(memberA?.[0]||"?").toUpperCase()}</span>
-              <span style={{ color:"rgba(255,180,200,.9)", fontSize:12, margin:"0 1px" }}>♥</span>
-              <span>{(memberB?.[0]||"?").toUpperCase()}</span>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {/* Avatar do usuário logado — destaque */}
+              <div style={{ width:42, height:42, borderRadius:"50%", background:"rgba(255,255,255,.95)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:18, color:C.primary, boxShadow:"0 2px 8px rgba(0,0,0,.18)", border:"2.5px solid rgba(255,255,255,.7)" }}>
+                {(memberA?.[0]||"?").toUpperCase()}
+              </div>
+              {/* Avatar do parceiro — menor */}
+              <div style={{ width:30, height:30, borderRadius:"50%", background:"rgba(255,255,255,.25)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13, color:"#fff", border:"2px solid rgba(255,255,255,.4)" }}>
+                {(memberB?.[0]||"?").toUpperCase()}
+              </div>
             </div>
             <button onClick={onClose} style={{ background:"rgba(255,255,255,.15)", border:"none", borderRadius:8, width:34, height:34, color:"#fff", cursor:"pointer", fontSize:18, fontFamily:"inherit" }}>✕</button>
           </div>
           <div style={{ fontWeight:900, fontSize:17 }}>{household?.name || "Finanças da Casa"}</div>
-          <div style={{ fontSize:12, opacity:.65, marginTop:2 }}>{memberA} & {memberB}</div>
+          <div style={{ fontSize:12, opacity:.75, marginTop:2 }}>
+            <span style={{ fontWeight:700 }}>{memberA}</span>
+            <span style={{ opacity:.6 }}> & {memberB}</span>
+          </div>
         </div>
 
         {/* Itens de navegação */}
