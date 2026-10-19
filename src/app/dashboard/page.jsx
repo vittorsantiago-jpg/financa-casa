@@ -332,7 +332,7 @@ export default function Dashboard() {
   // Auto-exibir tour na primeira visita
   useEffect(() => {
     if (!userId) return;
-    try { if (!localStorage.getItem("tour_done")) setShowTour(true); } catch(_){}
+    setShowTour(true); // TEMP: exibe para todos — remover após validação
   }, [userId]);
 
   const { household, members } = useHousehold(householdId);
