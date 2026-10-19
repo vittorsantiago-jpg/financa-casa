@@ -152,7 +152,15 @@ export default function AppLock({ children }) {
             );
           })}
         </div>
-        {status === "locked" && <button onClick={resetPin} style={{ background:"none", border:"none", color:"rgba(255,255,255,.3)", fontSize:12, cursor:"pointer", marginTop:4, fontFamily:"inherit" }}>Esqueci meu PIN</button>}
+        {status === "locked" && (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+            <button onClick={resetPin} style={{ background:"none", border:"none", color:"rgba(255,255,255,.3)", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>Esqueci meu PIN</button>
+            <button onClick={async () => { const sb = createClient(); await sb.auth.signOut(); window.location.href = "/auth"; }}
+              style={{ background:"none", border:"none", color:"rgba(255,255,255,.22)", fontSize:11, cursor:"pointer", fontFamily:"inherit", textDecoration:"underline" }}>
+              Sair / Trocar conta
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

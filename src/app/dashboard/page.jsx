@@ -207,6 +207,92 @@ function ConfirmDialog({ msg, detail, onOk, onCancel }) {
     </div>
   );
 }
+// ─── TOUR / ONBOARDING ────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  { icon:"👋", tab:null,         title:"Bem-vindo ao Finanças da Casa!",       desc:"Este tour rápido vai te mostrar como usar cada seção do app. Use os botões abaixo para navegar entre os passos." },
+  { icon:"📊", tab:"dashboard",  title:"Dashboard",                             desc:"Aqui você vê o resumo do mês: renda, gastos por pessoa, categorias e o fluxo dos últimos 6 meses. O ponto de partida de tudo." },
+  { icon:"💰", tab:"renda",      title:"Renda",                                 desc:"Cadastre as fontes de renda de cada membro — salários CLT, freelances, bicos. Marque como recebido quando o dinheiro entrar na conta." },
+  { icon:"📋", tab:"fixas",      title:"Contas Fixas",                          desc:"São as contas que chegam todo mês: aluguel, internet, streaming. Cadastre uma vez e elas ficam sempre no cálculo." },
+  { icon:"🧾", tab:"lancamentos",title:"Lançamentos (Gastos Variáveis)",        desc:"Mercado, farmácia, restaurante — gastos que variam mês a mês. Registre aqui com categoria e método de pagamento." },
+  { icon:"💳", tab:"cartoes",    title:"Cartões de Crédito",                    desc:"Cadastre seus cartões e registre as compras. O app calcula a fatura e te avisa o vencimento no painel de Contas." },
+  { icon:"🏠", tab:"contas",     title:"Contas do Mês",                         desc:"Visão geral das contas que precisam ser pagas este mês — fixas e faturas de cartão. Marque como pago quando quitar." },
+  { icon:"🎯", tab:"metas",      title:"Metas de Poupança",                     desc:"Defina objetivos financeiros com valor alvo e prazo. Registre aportes e acompanhe o progresso em tempo real." },
+  { icon:"💸", tab:"dividas",    title:"Dívidas",                               desc:"Controle empréstimos e financiamentos. No modo simples, basta informar a parcela. No modo avançado, o app calcula juros e projeção de quitação." },
+  { icon:"⚙️", tab:"config",    title:"Configurações",                          desc:"Altere o nome da casa, gerencie os membros e copie o código de convite para adicionar seu parceiro." },
+  { icon:"✅", tab:null,         title:"Pronto! Você já sabe tudo.",            desc:"Se tiver dúvidas, acesse o tutorial novamente pelo menu lateral a qualquer momento. Boas finanças! 🚀" },
+];
+
+function TourOverlay({ onClose, setTab }) {
+  const [step, setStep] = useState(0);
+  const s = TOUR_STEPS[step];
+  const isLast = step === TOUR_STEPS.length - 1;
+
+  const next = () => {
+    if (isLast) { onClose(); return; }
+    const nextStep = TOUR_STEPS[step + 1];
+    if (nextStep.tab) setTab(nextStep.tab);
+    setStep(step + 1);
+  };
+  const prev = () => {
+    if (step === 0) return;
+    const prevStep = TOUR_STEPS[step - 1];
+    if (prevStep.tab) setTab(prevStep.tab);
+    setStep(step - 1);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-end", padding:"0 0 28px" }}>
+      {/* Backdrop semitransparente */}
+      <div style={{ position:"absolute", inset:0, background:"rgba(15,15,40,.65)", backdropFilter:"blur(2px)" }} />
+
+      {/* Card do passo */}
+      <div style={{ position:"relative", background:C.card, borderRadius:24, padding:"28px 24px 24px", width:"100%", maxWidth:440, margin:"0 16px",
+                    boxShadow:"0 24px 64px rgba(0,0,0,.3)" }}>
+        {/* Barra de progresso */}
+        <div style={{ display:"flex", gap:4, marginBottom:20 }}>
+          {TOUR_STEPS.map((_,i)=>(
+            <div key={i} style={{ flex:1, height:4, borderRadius:4,
+              background: i <= step ? C.primary : C.border,
+              transition:"background .3s" }} />
+          ))}
+        </div>
+
+        {/* Conteúdo */}
+        <div style={{ textAlign:"center", marginBottom:24 }}>
+          <div style={{ fontSize:52, lineHeight:1, marginBottom:14 }}>{s.icon}</div>
+          <div style={{ fontSize:18, fontWeight:900, color:C.text, marginBottom:10 }}>{s.title}</div>
+          <div style={{ fontSize:14, color:C.sub, lineHeight:1.6 }}>{s.desc}</div>
+        </div>
+
+        {/* Passo X de Y */}
+        <div style={{ textAlign:"center", fontSize:12, color:C.muted, marginBottom:16 }}>
+          Passo {step + 1} de {TOUR_STEPS.length}
+        </div>
+
+        {/* Botões */}
+        <div style={{ display:"flex", gap:10 }}>
+          {step > 0 && (
+            <button onClick={prev} style={{ flex:1, padding:"12px 0", border:`1.5px solid ${C.border}`, borderRadius:12,
+              fontSize:14, fontWeight:700, background:"transparent", color:C.sub, cursor:"pointer", fontFamily:"inherit" }}>
+              ← Anterior
+            </button>
+          )}
+          {step === 0 && (
+            <button onClick={onClose} style={{ flex:1, padding:"12px 0", border:`1.5px solid ${C.border}`, borderRadius:12,
+              fontSize:14, fontWeight:700, background:"transparent", color:C.muted, cursor:"pointer", fontFamily:"inherit" }}>
+              Pular tour
+            </button>
+          )}
+          <button onClick={next} style={{ flex: step > 0 ? 1 : 2, padding:"12px 0", border:"none", borderRadius:12,
+            fontSize:14, fontWeight:800, background:C.primary, color:"#fff", cursor:"pointer", fontFamily:"inherit" }}>
+            {isLast ? "Começar! 🚀" : "Próximo →"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function useConfirm() {
   const [state, setState] = useState({ open:false, msg:"", detail:"", onOk:null });
   const ask = (msg, onOk, detail="") => setState({ open:true, msg, detail, onOk });
@@ -226,6 +312,7 @@ export default function Dashboard() {
   const [userId,      setUserId]      = useState(null);
   const [tab,         setTab]         = useState("dashboard");
   const [drawerOpen,  setDrawerOpen]  = useState(false);
+  const [showTour,    setShowTour]    = useState(false);
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year,  setYear]  = useState(now.getFullYear());
@@ -241,6 +328,12 @@ export default function Dashboard() {
       setHouseholdId(m.household_id);
     })();
   }, []);
+
+  // Auto-exibir tour na primeira visita
+  useEffect(() => {
+    if (!userId) return;
+    try { if (!localStorage.getItem("tour_done")) setShowTour(true); } catch(_){}
+  }, [userId]);
 
   const { household, members } = useHousehold(householdId);
 
@@ -349,7 +442,19 @@ export default function Dashboard() {
         tab={tab} setTab={setTab} tabs={TABS}
         household={household} memberA={memberA} memberB={memberB}
         me={me} onLogout={logout}
+        onTour={() => { setShowTour(true); setDrawerOpen(false); }}
       />
+
+      {/* ── TOUR ── */}
+      {showTour && (
+        <TourOverlay
+          setTab={setTab}
+          onClose={() => {
+            setShowTour(false);
+            try { localStorage.setItem("tour_done","1"); } catch(_){}
+          }}
+        />
+      )}
 
       {/* ── HEADER ── */}
       <div style={{ background:C.header, color:"#fff", padding:"14px 16px" }}>
@@ -392,7 +497,7 @@ export default function Dashboard() {
 }
 
 // ─── SIDE DRAWER NAVIGATION ──────────────────────────────────────────────────
-function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, memberB, onLogout, me }) {
+function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, memberB, onLogout, me, onTour }) {
   const go = (id) => { setTab(id); onClose(); };
   return (
     <>
@@ -451,8 +556,13 @@ function NavDrawer({ open, onClose, tab, setTab, tabs, household, memberA, membe
           ))}
         </div>
 
-        {/* Botão sair */}
-        <div style={{ padding:"16px 18px", borderTop:`1px solid ${C.border}`, paddingBottom:"calc(16px + env(safe-area-inset-bottom))" }}>
+        {/* Botões inferiores */}
+        <div style={{ padding:"16px 18px", borderTop:`1px solid ${C.border}`, paddingBottom:"calc(16px + env(safe-area-inset-bottom))", display:"flex", flexDirection:"column", gap:10 }}>
+          <button onClick={onTour} style={{
+            width:"100%", padding:"11px 0", background:C.pLight, color:C.primary,
+            border:`1.5px solid ${C.primary}`, borderRadius:12, fontWeight:700, fontSize:14,
+            cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+          }}>🎓 Ver Tutorial</button>
           <button onClick={onLogout} style={{
             width:"100%", padding:"13px 0", background:C.dLight, color:C.danger,
             border:"none", borderRadius:12, fontWeight:700, fontSize:15,
@@ -1241,8 +1351,16 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
             {pForm.split_type==="specific"&&<Field label="Quem paga?" span={2}><Select value={pForm.split_member} onChange={e=>setPF(p=>({...p,split_member:e.target.value}))}><option value="">Selecione…</option><option value={memberA}>{memberA}</option><option value={memberB}>{memberB}</option></Select></Field>}
             <Field label="Valor 1ª parcela (R$)"><CurrencyInput value={pForm.firstAmount} onChange={v=>setPF(p=>({...p,firstAmount:v}))}/></Field>
             <Field label="Demais parcelas (R$)"><CurrencyInput value={pForm.recurAmount} onChange={v=>setPF(p=>({...p,recurAmount:v}))}/></Field>
+            <Field label="Mês da 1ª parcela">
+              <Select value={pForm.first_month} onChange={e=>setPF(p=>({...p,first_month:Number(e.target.value)}))}>
+                {MONTHS_FULL.map((m,i)=><option key={i} value={i}>{m}</option>)}
+              </Select>
+            </Field>
+            <Field label="Ano">
+              <Input type="number" min={2024} max={2035} value={pForm.first_year} onChange={e=>setPF(p=>({...p,first_year:Number(e.target.value)}))}/>
+            </Field>
             <div style={{ gridColumn:"1/-1", background:C.pLight, borderRadius:10, padding:"8px 14px", fontSize:12, color:C.primary }}>
-              Dica: Deixe "Demais parcelas" em branco se todas forem iguais à primeira. Mês de início: <strong>{MONTHS_FULL[month]} {year}</strong>
+              💡 Deixe "Demais parcelas" em branco se todas forem iguais. Compra feita hoje que só aparece em novembro? Selecione novembro acima.
             </div>
           </div>
           <Btn onClick={addPlan} style={{ width:"100%" }}>Criar Parcelamento</Btn>
@@ -1297,7 +1415,8 @@ function CartoesTab({ cards, txs, memberA, memberB, month, year, mTxs, mInst, in
                           </div>
                           <div style={{ fontSize:11, color:C.muted }}>Parcela · {i.plan?.split_type==="half"?"50/50":`${i.plan?.split_member} paga`}</div>
                         </div>
-                        <div style={{ fontWeight:800, fontSize:14 }}>{fmt(i.amount)}</div>
+                        <div style={{ fontWeight:800, fontSize:14, marginRight:4 }}>{fmt(i.amount)}</div>
+                        <button onClick={()=>askConfirm(`Cancelar parcelamento "${i.plan?.description}"?`, ()=>instHook.cancelPlan(i.plan_id), "As parcelas futuras serão removidas.")} style={{ background:"none", border:`1.5px solid #a5b4fc`, borderRadius:8, width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{UI.trash}</button>
                       </div>;
                     })}
                   </div>
